@@ -1,6 +1,7 @@
 package faang.school.postservice.service;
 
 import faang.school.postservice.dto.comment.CommentDto;
+import faang.school.postservice.dto.kafka.EventAction;
 import faang.school.postservice.exception.DataValidationException;
 import faang.school.postservice.mapper.CommentMapper;
 import faang.school.postservice.model.Comment;
@@ -31,8 +32,13 @@ public class CommentService {
     public CommentDto create(CommentDto commentDto){
         Comment comment = commentMapper.commentToEntity(commentDto);
         postRepository.findById(commentDto.getPostId()).orElseThrow(() -> new EntityNotFoundException(
-                MessageFormat.format(ErrorMessage.POST_NOT_FOUND, commentDto.getPostId())));
-        log.info("Comment created and saved: " + comment);
+                MessageFormat.format(ErrorMessage.COMMENT_NOT_FOUND_FORMAT, commentDto.getPostId())));
+        log.info("Comment created and saved. Id: {}" + comment.getId());
+
+        publishCommentCreationEvent(comment);
+        publishKafkaCommentEvent(comment, EventAction.CREATE);
+
+        redisCacheService.updateOrCacheUser(redisCacheService.findUserBy(authorId));
 
         return commentMapper.commentToDto(commentRepository.save(comment));
     }
@@ -64,5 +70,40 @@ public class CommentService {
                 .sorted(Comparator.comparing(Comment::getCreatedAt).reversed())
                 .map(commentMapper::commentToDto)
                 .toList();
+    }
+
+    private void publishCommentCreationEvent(Comment comment) {
+        long commentId = comment.getId();
+        long authorId = comment.getAuthorId();
+        long postId = comment.getPost().getId();
+
+        CommentEventDto commentEventDto = CommentEventDto.builder()
+                .commentId(commentId)
+                .authorId(authorId)
+                .postId(postId)
+                .createdAt(comment.getCreatedAt())
+                .build();
+        redisCommentEventPublisher.publish(commentEventDto);
+        log.info("Comment creation event were published with comment ID: {}, author ID: {}, post ID: {}", commentId, authorId, postId);
+    }
+
+    private void publishKafkaCommentEvent(Comment comment, EventAction eventAction) {
+        long postId = comment.getPost().getId();
+        long authorId = comment.getAuthorId();
+
+        CommentPostEvent event = CommentPostEvent.builder()
+                .postId(postId)
+                .commentDto(redisCommentMapper.toDto(comment))
+                .eventAction(eventAction)
+                .build();
+        kafkaCommentEventPublisher.publish(event);
+        log.info("Comment event with Post ID: {}, and Author ID: {}, has been successfully published", postId, authorId);
+    }
+
+    private Comment buildCommentExampleBy(long postId) {
+        return Comment.builder()
+                .post(Post.builder().id(postId).build())
+                .build();
+
     }
 }
