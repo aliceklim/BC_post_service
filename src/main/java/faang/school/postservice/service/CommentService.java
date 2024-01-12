@@ -8,6 +8,7 @@ import faang.school.postservice.model.Comment;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.util.ErrorMessage;
+import faang.school.postservice.validator.CommentValidator;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,10 +28,14 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final CommentMapper commentMapper;
     private final PostRepository postRepository;
+    private final CommentValidator commentValidator;
+    private final RedisCacheService redisCacheService;
 
     @Transactional
     public CommentDto create(CommentDto commentDto){
         Comment comment = commentMapper.commentToEntity(commentDto);
+        commentValidator.validateUserExistence(comment.getAuthorId());
+
         postRepository.findById(commentDto.getPostId()).orElseThrow(() -> new EntityNotFoundException(
                 MessageFormat.format(ErrorMessage.COMMENT_NOT_FOUND_FORMAT, commentDto.getPostId())));
         log.info("Comment created and saved. Id: {}" + comment.getId());
@@ -38,7 +43,7 @@ public class CommentService {
         publishCommentCreationEvent(comment);
         publishKafkaCommentEvent(comment, EventAction.CREATE);
 
-        redisCacheService.updateOrCacheUser(redisCacheService.findUserBy(authorId));
+        redisCacheService.updateOrCacheUser(redisCacheService.findUserBy(comment.getAuthorId()));
 
         return commentMapper.commentToDto(commentRepository.save(comment));
     }
