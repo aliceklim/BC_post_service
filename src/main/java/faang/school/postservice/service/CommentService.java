@@ -2,6 +2,7 @@ package faang.school.postservice.service;
 
 import faang.school.postservice.dto.comment.CommentDto;
 import faang.school.postservice.dto.kafka.EventAction;
+import faang.school.postservice.dto.redis.CommentEventDto;
 import faang.school.postservice.exception.DataValidationException;
 import faang.school.postservice.mapper.CommentMapper;
 import faang.school.postservice.model.Comment;
@@ -89,7 +90,7 @@ public class CommentService {
                 .createdAt(comment.getCreatedAt())
                 .build();
         redisCommentEventPublisher.publish(commentEventDto);
-        log.info("Comment creation event were published with comment ID: {}, author ID: {}, post ID: {}", commentId, authorId, postId);
+        log.info("Comment creation event published: comment ID: {}, author ID: {}, post ID: {}", commentId, authorId, postId);
     }
 
     private void publishKafkaCommentEvent(Comment comment, EventAction eventAction) {
