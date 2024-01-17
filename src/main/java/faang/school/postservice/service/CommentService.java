@@ -1,13 +1,18 @@
 package faang.school.postservice.service;
 
 import faang.school.postservice.dto.comment.CommentDto;
+import faang.school.postservice.dto.kafka.CommentPostEvent;
 import faang.school.postservice.dto.kafka.EventAction;
 import faang.school.postservice.dto.redis.CommentEventDto;
 import faang.school.postservice.exception.DataValidationException;
 import faang.school.postservice.mapper.CommentMapper;
+import faang.school.postservice.mapper.redis.RedisCommentMapper;
 import faang.school.postservice.model.Comment;
+import faang.school.postservice.model.Post;
+import faang.school.postservice.publisher.KafkaCommentProducer;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.service.redis.CommentEventPublisher;
 import faang.school.postservice.util.ErrorMessage;
 import faang.school.postservice.validator.CommentValidator;
 import jakarta.persistence.EntityNotFoundException;
@@ -15,7 +20,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.text.MessageFormat;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -31,6 +35,9 @@ public class CommentService {
     private final PostRepository postRepository;
     private final CommentValidator commentValidator;
     private final RedisCacheService redisCacheService;
+    private final CommentEventPublisher redisCommentEventPublisher;
+    private final RedisCommentMapper redisCommentMapper;
+    private final KafkaCommentProducer kafkaCommentEventPublisher;
 
     @Transactional
     public CommentDto create(CommentDto commentDto){
@@ -110,6 +117,5 @@ public class CommentService {
         return Comment.builder()
                 .post(Post.builder().id(postId).build())
                 .build();
-
     }
 }
