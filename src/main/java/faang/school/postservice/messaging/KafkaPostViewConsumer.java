@@ -2,7 +2,7 @@ package faang.school.postservice.messaging;
 
 import faang.school.postservice.dto.post.KafkaPostView;
 import faang.school.postservice.dto.post.RedisPostDto;
-import faang.school.postservice.repository.PostRedisRepository;
+import faang.school.postservice.repository.redis.PostRedisRepository;
 import faang.school.postservice.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;

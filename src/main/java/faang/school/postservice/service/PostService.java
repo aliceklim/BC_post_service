@@ -2,25 +2,32 @@ package faang.school.postservice.service;
 
 import faang.school.postservice.client.ProjectServiceClient;
 import faang.school.postservice.client.UserServiceClient;
+import faang.school.postservice.dto.PostPair;
+import faang.school.postservice.dto.kafka.EventAction;
 import faang.school.postservice.dto.post.CreatePostDto;
 import faang.school.postservice.dto.post.KafkaPostView;
 import faang.school.postservice.dto.post.PostDto;
 import faang.school.postservice.dto.post.PostViewEventDto;
-import faang.school.postservice.dto.post.RedisPostDto;
 import faang.school.postservice.dto.post.UpdatePostDto;
+import faang.school.postservice.dto.user.UserDto;
+import faang.school.postservice.exception.AlreadyDeletedException;
+import faang.school.postservice.exception.AlreadyPostedException;
 import faang.school.postservice.exception.DataValidationException;
+import faang.school.postservice.exception.EntityNotFoundException;
 import faang.school.postservice.mapper.PostMapper;
 import faang.school.postservice.messaging.KafkaPostViewProducer;
+import faang.school.postservice.model.redis.RedisPost;
 import faang.school.postservice.publisher.PostViewEventPublisher;
 import faang.school.postservice.messaging.publishing.NewPostPublisher;
 import faang.school.postservice.model.Post;
-import faang.school.postservice.repository.PostRedisRepository;
+import faang.school.postservice.repository.redis.PostRedisRepository;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.repository.ad.AdRepository;
+import faang.school.postservice.repository.redis.RedisPostRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +40,7 @@ import java.util.List;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
+@Slf4j
 public class PostService {
     private final AdRepository adRepository;
     private final PostRepository postRepository;
@@ -41,8 +49,13 @@ public class PostService {
     private final ProjectServiceClient projectServiceClient;
     private final NewPostPublisher newPostPublisher;
     private final PostViewEventPublisher postViewEventPublisher;
-    private final PostRedisRepository postRedisRepository;
+    private final RedisPostRepository redisPostRepository;
     private final KafkaPostViewProducer kafkaPostViewProducer;
+
+    @Value("${post.moderation.scheduler.sublist-size}")
+    private int sublistSize;
+    @Value("${spring.data.kafka.util.batch-size}")
+    private int batchSize;
 
     @Transactional
     public PostDto createPost(CreatePostDto createPostDto) {
@@ -60,27 +73,29 @@ public class PostService {
         }
         post.setDeleted(false);
         post.setPublished(false);
-        PostDto result = postMapper.toDto(postRepository.save(post));
-        newPostPublisher.publish(result);
-        postRedisRepository.save(postMapper.toRedisPostDto(result));
-        return result;
+
+        return postMapper.toDto(postRepository.save(post));
     }
 
     @Transactional
-    public List<PostDto> publishPost() {
-        List<Post> readyToPublish = postRepository.findReadyToPublish();
-        if (readyToPublish.isEmpty()) {
-            return new ArrayList<>();
+    public PostDto publishPost(long postId) {
+        Post post = findPostBy(postId);
+
+        if (post.isPublished() || (post.getScheduledAt() != null
+                && post.getScheduledAt().isBefore(LocalDateTime.now()))) {
+            throw new AlreadyPostedException("You can't publish post, that has been published");
         }
-        for (Post post : readyToPublish) {
-            if (post.isPublished()) {
-                continue;
-            }
-            post.setPublished(true);
-            post.setPublishedAt(null);
-            postRepository.save(post);
+        if (post.isDeleted()) {
+            throw new AlreadyDeletedException(("You can't publish post, that has been deleted"));
         }
-        return postMapper.toDtoList(readyToPublish);
+
+        post.setPublished(true);
+        post.setPublishedAt(LocalDateTime.now());
+        publisherService.publishPostEventToRedis(post);
+        log.info("Post was published successfully, postId={}", post.getId());
+
+        savePostAndAuthorToRedisAndSendEventToKafka(post);
+        return postMapper.toDto(post);
     }
 
     @Transactional
@@ -168,5 +183,27 @@ public class PostService {
     @Transactional
     public Post updatePostInternal(Post post){
         return postRepository.save(post);
+    }
+
+    private void savePostAndAuthorToRedisAndSendEventToKafka(Post post) {
+        long postId = post.getId();
+        long authorId = post.getAuthorId();
+
+        UserDto userDto = redisCacheService.findUserBy(authorId);
+        redisCacheService.updateOrCacheUser(userDto);
+
+        RedisPost redisPost = redisCacheService.mapPostToRedisPostAndSetDefaultVersion(post);
+        redisCacheService.saveRedisPost(redisPost);
+
+        List<Long> followerIds = userDto.getFollowerIds();
+        PostPair postPair = buildPostPair(postId, post.getPublishedAt());
+
+        publishPostPublishOrDeleteEventToKafka(followerIds, postPair, EventAction.CREATE);
+    }
+
+    @Transactional
+    public Post findPostBy(long postId) {
+        return postRepository.findById(postId)
+                .orElseThrow(() -> new EntityNotFoundException(String.format("Post with ID: %d, doesn't exist", postId)));
     }
 }
