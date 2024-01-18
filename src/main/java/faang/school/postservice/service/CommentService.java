@@ -9,7 +9,7 @@ import faang.school.postservice.mapper.CommentMapper;
 import faang.school.postservice.mapper.redis.RedisCommentMapper;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Post;
-import faang.school.postservice.publisher.KafkaCommentProducer;
+import faang.school.postservice.messaging.publisher.KafkaCommentProducer;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.service.redis.CommentEventPublisher;
