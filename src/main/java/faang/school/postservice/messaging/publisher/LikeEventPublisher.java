@@ -1,4 +1,4 @@
-package faang.school.postservice.publisher;
+package faang.school.postservice.messaging.publisher;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import faang.school.postservice.dto.like.LikeEventDto;

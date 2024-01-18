@@ -1,28 +1,23 @@
-package faang.school.postservice.messaging.publishing;
+package faang.school.postservice.messaging.publisher;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import faang.school.postservice.dto.post.PostDto;
-import faang.school.postservice.dto.post.UpdatePostDto;
+import faang.school.postservice.exception.DataValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
-import org.springframework.stereotype.Service;
 
-@Service
 @RequiredArgsConstructor
-public class NewPostPublisher implements MessagePublisher<PostDto> {
+public abstract class AbstractEventPublisher<T> {
     private final RedisTemplate<String, Object> redisTemplate;
-    private final ChannelTopic topic;
     private final ObjectMapper objectMapper;
 
-    @Override
-    public void publish(PostDto message) {
+    protected void publishInTopic(ChannelTopic topic, T event) {
         String json;
         try {
-            json = objectMapper.writeValueAsString(message);
+            json = objectMapper.writeValueAsString(event);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+            throw new DataValidationException("Cannot serialize event to json");
         }
         redisTemplate.convertAndSend(topic.getTopic(), json);
     }

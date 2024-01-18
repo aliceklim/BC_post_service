@@ -2,7 +2,7 @@ package faang.school.postservice.service.redis;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import faang.school.postservice.publisher.MessagePublisher;
+import faang.school.postservice.messaging.publisher.MessagePublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;

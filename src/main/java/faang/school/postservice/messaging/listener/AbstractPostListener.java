@@ -1,13 +1,11 @@
-package faang.school.postservice.messaging.listening;
+package faang.school.postservice.messaging.listener;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import faang.school.postservice.dto.post.PostDto;
 import faang.school.postservice.service.HashtagService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.connection.Message;
 
 import java.io.IOException;
-import java.lang.module.Configuration;
 import java.util.function.Consumer;
 
 @RequiredArgsConstructor

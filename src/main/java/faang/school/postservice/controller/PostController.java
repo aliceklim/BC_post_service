@@ -8,6 +8,7 @@ import faang.school.postservice.service.PostService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,33 +26,51 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/posts")
+@Slf4j
 public class PostController {
 
     private final PostService postService;
 
-    @PostMapping
+    @PostMapping("/drafts")
     public PostDto createPost(@Valid @RequestBody CreatePostDto createPostDto) {
+        log.info("Endpoint <createPost>, uri='/posts/drafts' was called");
         return postService.createPost(createPostDto);
     }
 
-    @PostMapping("/publish")
-    public List<PostDto> publishPost() {
-        return postService.publishPost();
+    @PostMapping("/{id}/publish")
+    public PostDto publishPost(@PathVariable("id") Long postId) {
+        log.info("Endpoint <publishPost>, uri='/posts/{}/publish' was called", postId);
+        return postService.publishPost(postId);
     }
 
-    @PutMapping("/{id}")
-    public PostDto updatePost(@Valid Long id, @RequestBody UpdatePostDto updatePostDto) {
-        return postService.updatePost(id, updatePostDto);
+    @PutMapping("/change")
+    public PostDto updatePost(@Valid @RequestBody PostDto postDto) {
+        log.info("Endpoint <updatePost>, uri='/posts/change' was called");
+        return postService.updatePost(postDto);
     }
 
-    @DeleteMapping("/{postId}")
-    public void softDeletePost(@NotNull @PathVariable Long postId) {
+    @DeleteMapping("{id}/soft-delete")
+    public void softDeletePost(@NotNull @PathVariable("id") Long postId) {
+        log.info("Endpoint <softDeletePost>, uri='/posts/{}/soft-delete' was called", postId);
         postService.softDeletePost(postId);
     }
 
-    @GetMapping("/{postId}")
-    private PostDto getPostById(@NotNull @PathVariable Long id) {
-        return postService.getPostById(id);
+    @GetMapping("/{id}")
+    private PostDto getPostById(@NotNull @PathVariable("id") Long postId) {
+        log.info("Endpoint <getPostById>, uri='/posts/{}' was called successfully", postId);
+        return postService.getPostById(postId);
+    }
+
+    @GetMapping("drafts/users/{id}")
+    public List<PostDto> getUserDrafts(@PathVariable("id") long userId) {
+        log.info("Endpoint <getUsersDrafts>, uri='/posts/drafts/users/{}' was called", userId);
+        return postService.getUserDrafts(userId);
+    }
+
+    @GetMapping("/drafts/projects/{id}")
+    public List<PostDto> getProjectDrafts(@PathVariable("id") long projectId) {
+        log.info("Endpoint <getProjectDrafts>, uri='/posts/drafts/projects/{}' was called", projectId);
+        return postService.getProjectDrafts(projectId);
     }
 
     @GetMapping("/author/{userId}/all")
