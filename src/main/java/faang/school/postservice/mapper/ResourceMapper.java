@@ -2,7 +2,7 @@ package faang.school.postservice.mapper;
 
 
 import faang.school.postservice.dto.resource.ResourceDto;
-import faang.school.postservice.model.resource.Resource;
+import faang.school.postservice.model.Resource;
 import org.mapstruct.InjectionStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.ReportingPolicy;

@@ -6,7 +6,7 @@ import faang.school.postservice.exception.DataValidationException;
 import faang.school.postservice.exception.EntityNotFoundException;
 import faang.school.postservice.mapper.ResourceMapper;
 import faang.school.postservice.model.Post;
-import faang.school.postservice.model.resource.Resource;
+import faang.school.postservice.model.Resource;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.repository.ResourceRepository;
 import org.junit.jupiter.api.BeforeEach;

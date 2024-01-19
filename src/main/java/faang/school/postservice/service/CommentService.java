@@ -118,4 +118,12 @@ public class CommentService {
                 .post(Post.builder().id(postId).build())
                 .build();
     }
+
+    public List<Comment> findUnverifiedComments() {
+        return commentRepository.findUnverifiedComments();
+    }
+
+    public void saveAll(List<Comment> comments) {
+        commentRepository.saveAll(comments);
+    }
 }

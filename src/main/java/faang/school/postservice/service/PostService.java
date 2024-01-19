@@ -1,28 +1,22 @@
 package faang.school.postservice.service;
 
-import faang.school.postservice.client.ProjectServiceClient;
 import faang.school.postservice.client.UserServiceClient;
 import faang.school.postservice.dto.PostPair;
 import faang.school.postservice.dto.kafka.EventAction;
 import faang.school.postservice.dto.kafka.PostEvent;
 import faang.school.postservice.dto.post.CreatePostDto;
-import faang.school.postservice.dto.post.KafkaPostView;
+import com.google.common.collect.Lists;
 import faang.school.postservice.dto.post.PostDto;
 import faang.school.postservice.dto.post.PostViewEvent;
-import faang.school.postservice.dto.post.PostViewEventDto;
 import faang.school.postservice.dto.user.UserDto;
 import faang.school.postservice.exception.*;
 import faang.school.postservice.mapper.PostMapper;
 import faang.school.postservice.messaging.publisher.KafkaPostProducer;
 import faang.school.postservice.messaging.publisher.KafkaPostViewProducer;
 import faang.school.postservice.model.redis.RedisPost;
-import faang.school.postservice.messaging.publisher.PostViewEventPublisher;
-import faang.school.postservice.messaging.publishing.NewPostPublisher;
 import faang.school.postservice.model.Post;
-import faang.school.postservice.repository.redis.PostRedisRepository;
 import faang.school.postservice.repository.PostRepository;
-import faang.school.postservice.repository.ad.AdRepository;
-import faang.school.postservice.repository.redis.RedisPostRepository;
+import faang.school.postservice.service.moderation.ModerationDictionary;
 import faang.school.postservice.validator.PostValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,12 +26,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 @Service
 @Transactional(readOnly = true)
@@ -46,17 +40,15 @@ import java.util.List;
 public class PostService {
     private final PostMapper postMapper;
     private final UserServiceClient userServiceClient;
-    private final ProjectServiceClient projectServiceClient;
     private final PostValidator postValidator;
-    private final AdRepository adRepository;
     private final PostRepository postRepository;
-    private final RedisPostRepository redisPostRepository;
     private final PublisherService publisherService;
     private final RedisCacheService redisCacheService;
     private final KafkaPostProducer kafkaPostProducer;
-    private final PostViewEventPublisher postViewEventPublisher;
     private final KafkaPostViewProducer kafkaPostViewProducer;
+    private final Executor threadPoolForPostModeration;
     private final ThreadPoolTaskExecutor threadPoolTaskExecutor;
+    private final ModerationDictionary moderationDictionary;
 
     @Value("${post.moderation.scheduler.sublist-size}")
     private int sublistSize;
@@ -283,7 +275,7 @@ public class PostService {
     }
 
     public void doPostModeration() {
-        log.info("<doPostModeration> was called successfully");
+        log.info("Post moderation started");
         List<Post> notVerifiedPost = postRepository.findNotVerified();
         List<List<Post>> partitionList = new ArrayList<>();
 
@@ -294,7 +286,7 @@ public class PostService {
         }
 
         partitionList.forEach(list -> threadPoolForPostModeration.execute(() -> checkListForObsceneWords(list)));
-        log.info("All posts have checked successfully");
+        log.info("All posts have been moderated");
     }
 
     private void publishPostDeleteEventToKafka(Post post) {
@@ -383,5 +375,16 @@ public class PostService {
 
     private List<Long> getPostIds(List<Post> posts){
         return posts.stream().map(Post::getId).toList();
+    }
+
+    private void checkListForObsceneWords(List<Post> posts) {
+        posts.forEach(post -> {
+            boolean checkResult = moderationDictionary.checkWordContent(post.getContent());
+            log.info("PostId={} has been checked for obscene words", post.getId());
+            post.setVerified(!checkResult);
+            post.setVerifiedDate(LocalDateTime.now());
+        });
+
+        postRepository.saveAll(posts);
     }
 }
