@@ -1,4 +1,4 @@
-package faang.school.postservice.model.resource;
+package faang.school.postservice.model;
 
 import faang.school.postservice.model.Post;
 import jakarta.persistence.Column;

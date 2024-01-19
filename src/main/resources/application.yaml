@@ -110,6 +110,17 @@ post:
   ad-remover:
     scheduler:
       cron: "0 0/1 * 1/1 * ?" # every minute
+  moderation:
+    scheduler:
+      cron: "0 0 0 * * ?" # every day at 00:00:00
+      sublist-size: 100
+
+comment:
+  moderator:
+    scheduler:
+      cron: "0 0 12 * * ?" # every day 12:00
+  batch:
+    size: 50
 
 user-service:
   host: localhost
