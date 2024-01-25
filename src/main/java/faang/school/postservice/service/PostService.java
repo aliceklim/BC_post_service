@@ -55,21 +55,14 @@ public class PostService {
     @Value("${spring.data.kafka.util.batch-size}")
     private int batchSize;
 
+
     @Transactional
-    public PostDto createPost(CreatePostDto createPostDto) {
-        Post post = postMapper.toEntity(createPostDto);
-        if (createPostDto.getAuthorId() != null && createPostDto.getProjectId() != null) {
-            throw new DataValidationException("The author can be either a user or a project");
-        }
-        if (createPostDto.getAuthorId() != null && userServiceClient.getUserInternal(createPostDto.getAuthorId()) == null) {
-            throw new DataValidationException(String.format("No author ID: %s or project ID: %s",
-                    createPostDto.getAuthorId(), createPostDto.getProjectId()));
-        }
+    public PostDto crateDraftPost(PostDto postDto) {
+        postValidator.validateData(postDto);
 
-        post.setDeleted(false);
-        post.setPublished(false);
-
-        return postMapper.toDto(postRepository.save(post));
+        Post savedPost = postRepository.save(postMapper.toEntity(postDto));
+        log.info("Draft post was created successfully, draftId={}", savedPost.getId());
+        return postMapper.toDto(savedPost);
     }
 
     @Transactional
@@ -310,6 +303,7 @@ public class PostService {
             kafkaPostProducer.publish(event);
         }
     }
+
     public void publishPostViewEventToKafka(List<Long> postIds) {
         threadPoolTaskExecutor.execute(() -> {
             postIds.forEach(postId -> {
@@ -319,6 +313,7 @@ public class PostService {
             });
         });
     }
+
     private void savePostAndAuthorToRedisAndSendEventToKafka(Post post) {
         long postId = post.getId();
         long authorId = post.getAuthorId();
@@ -334,6 +329,7 @@ public class PostService {
 
         publishPostPublishOrDeleteEventToKafka(followerIds, postPair, EventAction.CREATE);
     }
+
     private void publishPostPublishOrDeleteEventToKafka(List<Long> followersIds, PostPair postPair, EventAction eventAction) {
         threadPoolTaskExecutor.execute(() -> {
             for (int i = 0; i < followersIds.size(); i += batchSize) {
@@ -352,6 +348,7 @@ public class PostService {
         return postRepository.findById(postId)
                 .orElseThrow(() -> new EntityNotFoundException(String.format("PostID: %d, doesn't exist", postId)));
     }
+
     private PostPair buildPostPair(long postId, LocalDateTime publishedAt) {
         return PostPair.builder()
                 .postId(postId)
