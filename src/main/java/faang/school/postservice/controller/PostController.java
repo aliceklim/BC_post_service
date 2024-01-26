@@ -32,9 +32,9 @@ public class PostController {
     private final PostService postService;
 
     @PostMapping("/drafts")
-    public PostDto createPost(@Valid @RequestBody CreatePostDto createPostDto) {
+    public PostDto createPost(@Valid @RequestBody PostDto createPostDto) {
         log.info("Endpoint <createPost>, uri='/posts/drafts' was called");
-        return postService.createPost(createPostDto);
+        return postService.crateDraftPost(createPostDto);
     }
 
     @PostMapping("/{id}/publish")
