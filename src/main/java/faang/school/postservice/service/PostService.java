@@ -1,10 +1,8 @@
 package faang.school.postservice.service;
 
-import faang.school.postservice.client.UserServiceClient;
 import faang.school.postservice.dto.PostPair;
 import faang.school.postservice.dto.kafka.EventAction;
 import faang.school.postservice.dto.kafka.PostEvent;
-import faang.school.postservice.dto.post.CreatePostDto;
 import com.google.common.collect.Lists;
 import faang.school.postservice.dto.post.PostDto;
 import faang.school.postservice.dto.post.PostViewEvent;
@@ -39,7 +37,6 @@ import java.util.concurrent.Executor;
 @Slf4j
 public class PostService {
     private final PostMapper postMapper;
-    private final UserServiceClient userServiceClient;
     private final PostValidator postValidator;
     private final PostRepository postRepository;
     private final PublisherService publisherService;
