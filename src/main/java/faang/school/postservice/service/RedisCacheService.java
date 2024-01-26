@@ -17,7 +17,6 @@ import org.springframework.data.redis.core.RedisKeyValueTemplate;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
-
 import java.text.MessageFormat;
 import java.util.Optional;
 
@@ -36,8 +35,25 @@ public class RedisCacheService {
         log.info("Searching for UserID {}", userId);
         return userServiceClient.getUser(userId);
     }
+
     public Optional<RedisUser> findRedisUserBy(long userId) {
         return redisUserRepository.findById(userId);
+    }
+
+    public Optional<RedisPost> findRedisPostBy(long postId) {
+        return redisPostRepository.findById(postId);
+    }
+
+    public RedisUser findOrCacheRedisUser(long userId) {
+        return redisUserRepository.findById(userId)
+                .orElseGet(() -> findAndCacheUser(userId));
+    }
+
+    public RedisUser findAndCacheUser(long userId) {
+        log.warn("UserID {} was not found in Redis. Attempting to retrieve from the database and cache in Redis.", userId);
+
+        UserDto userDto = findUserBy(userId);
+        return cacheUser(userDto);
     }
 
     public RedisUser updateUser(RedisUser oldUser, UserDto newUser) {
@@ -52,6 +68,20 @@ public class RedisCacheService {
 
         return redisUser;
     }
+
+    public RedisPost updatePost(RedisPost oldPost, Post newPost) {
+        long postId = newPost.getId();
+        oldPost.incrementPostVersion();
+
+        RedisPost updatedPost = mapPostToRedisPost(newPost);
+        updatedPost.setVersion(oldPost.getVersion());
+
+        RedisPost redisPost = updateRedisPost(postId, updatedPost);
+        log.info("Post with ID: {}, was successfully updated in Redis", postId);
+
+        return redisPost;
+    }
+
     public RedisUser cacheUser(UserDto userDto) {
         long userId = userDto.getId();
         log.info(MessageFormat.format(ErrorMessage.REDIS_USER_NOT_FOUND, userId));
@@ -62,6 +92,18 @@ public class RedisCacheService {
 
         return redisUser;
     }
+
+    public RedisPost cachePost(Post post) {
+        long postId = post.getId();
+        log.warn("Post with ID: {} doesn't exist in Redis. Attempting to cache Post", postId);
+
+        RedisPost newPost = mapPostToRedisPostAndSetDefaultVersion(post);
+        RedisPost redisPost = saveRedisPost(newPost);
+        log.info("Post with ID: {} has been successfully save into a Redis", postId);
+
+        return redisPost;
+    }
+
     public RedisUser updateOrCacheUser(UserDto userDto) {
         long userId = userDto.getId();
 
@@ -79,32 +121,62 @@ public class RedisCacheService {
         }
     }
 
+    public RedisPost updateOrCachePost(Post post) {
+        long postId = post.getId();
+
+        Optional<RedisPost> optionalPost = findRedisPostBy(postId);
+
+        if (optionalPost.isPresent()) {
+            log.info("Post with ID: {} exist in Redis. Attempting to update Post", postId);
+
+            RedisPost oldPost = optionalPost.get();
+            return updatePost(oldPost, post);
+        } else {
+            log.warn("Post with ID: {} not found in Redis. Caching...", postId);
+
+            return cachePost(post);
+        }
+    }
+
     @Retryable(retryFor = OptimisticLockingFailureException.class, maxAttempts = 4, backoff = @Backoff(1000))
     public RedisUser saveRedisUser(RedisUser redisUser) {
         return redisUserRepository.save(redisUser);
     }
+
     @Retryable(retryFor = OptimisticLockingFailureException.class, maxAttempts = 4, backoff = @Backoff(1000))
     public RedisPost saveRedisPost(RedisPost redisPost) {
         return redisPostRepository.save(redisPost);
     }
+
     @Retryable(retryFor = OptimisticLockingFailureException.class, maxAttempts = 2, backoff = @Backoff(1000))
     public RedisUser updateRedisUser(long userId, RedisUser redisUser) {
         return keyValueTemplate.update(userId, redisUser);
     }
 
+    @Retryable(retryFor = OptimisticLockingFailureException.class, maxAttempts = 2, backoff = @Backoff(1000))
+    public RedisPost updateRedisPost(long postId, RedisPost redisPost) {
+        return keyValueTemplate.update(postId, redisPost);
+    }
+
     public RedisUser mapUserToRedisUser(UserDto userDto) {
         return redisUserMapper.toRedisUser(userDto);
     }
+
     public RedisUser mapUserToRedisUserAndSetDefaultVersion(UserDto userDto) {
         RedisUser redisUser = redisUserMapper.toRedisUser(userDto);
         redisUser.setVersion(1);
 
         return redisUser;
     }
+
     public RedisPost mapPostToRedisPostAndSetDefaultVersion(Post post) {
         RedisPost redisPost = redisPostMapper.toRedisPost(post);
         redisPost.setVersion(1);
 
         return redisPost;
+    }
+
+    public RedisPost mapPostToRedisPost(Post post) {
+        return redisPostMapper.toRedisPost(post);
     }
 }
