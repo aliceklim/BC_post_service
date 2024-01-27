@@ -152,5 +152,12 @@ pool:
     keep-alive-time: 5000
     capacity: 10000
 
+async:
+  thread-pool:
+    settings:
+      core-pool-size: 4
+      max-pool-size: 8
+      queue-capacity: 100
+
 page:
   size: 20
