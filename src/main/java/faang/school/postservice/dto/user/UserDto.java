@@ -16,4 +16,5 @@ public class UserDto {
     private String username;
     private String email;
     private List<Long> followerIds;
+    private List<Long> followeeIds;
 }

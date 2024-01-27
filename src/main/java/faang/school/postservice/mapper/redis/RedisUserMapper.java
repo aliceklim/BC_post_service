@@ -17,5 +17,5 @@ public interface RedisUserMapper {
     @Mapping(target = "id", source = "userId")
     UserDto toUserDto(RedisUser redisUser);
 
-//    RedisUserDto toDto(RedisUser redisUser);
+    RedisUserDto toDto(RedisUser redisUser);
 }

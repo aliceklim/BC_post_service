@@ -179,4 +179,12 @@ public class RedisCacheService {
     public RedisPost mapPostToRedisPost(Post post) {
         return redisPostMapper.toRedisPost(post);
     }
+
+    public void deleteRedisPost(long postId) {
+        redisPostRepository.deleteById(postId);
+    }
+
+    public void deleteRedisUser(long userId) {
+        redisUserRepository.deleteById(userId);
+    }
 }

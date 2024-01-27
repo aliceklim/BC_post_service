@@ -25,11 +25,9 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -346,6 +344,12 @@ public class PostService {
                 .orElseThrow(() -> new EntityNotFoundException(String.format("PostID: %d, doesn't exist", postId)));
     }
 
+    @Transactional
+    public Optional<Post> findAlreadyPublishedAndNotDeletedPost(long postId) {
+        return postRepository.findPublishedAndNotDeletedBy(postId);
+
+    }
+
     private PostPair buildPostPair(long postId, LocalDateTime publishedAt) {
         return PostPair.builder()
                 .postId(postId)
@@ -380,5 +384,47 @@ public class PostService {
         });
 
         postRepository.saveAll(posts);
+    }
+
+    public void incrementPostViewByPostId(long postId) {
+        postRepository.incrementPostViewByPostId(postId);
+    }
+
+    public List<RedisPost> findRedisPostsByAndCacheThemIfNotExist(List<Long> postIds) {
+        return postIds.stream()
+                .map(this::findRedisPostAndCacheIfNotExist)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public RedisPost findRedisPostAndCacheIfNotExist(long postId) {
+        return redisCacheService.findRedisPostBy(postId)
+                .orElseGet(() -> findPostByIdAndCacheHim(postId));
+    }
+
+    private RedisPost findPostByIdAndCacheHim(long postId) {
+        log.warn("PostID {} was not found in Redis. Retrieving from the database and caching in Redis.", postId);
+
+        Post post = findAlreadyPublishedAndNotDeletedPost(postId)
+                .orElseThrow(() -> new EntityNotFoundException(String.format(
+                        "Post with ID: %d not published yet or already deleted", postId)));
+        return redisCacheService.cachePost(post);
+    }
+
+    @Transactional
+    public List<Post> findSortedPostsByAuthorIdsLimit(List<Long> authorIds, long requiredAmount) {
+        return postRepository.findSortedPostsByAuthorIdsAndLimit(authorIds, requiredAmount);
+    }
+
+    @Transactional
+    public List<Post> findSortedPostsByAuthorIdsNotInPostIdsLimit(List<Long> authorIds, List<Long> usedPostIds,
+                                                                  int amount) {
+        return postRepository.findSortedPostsByAuthorIdsNotInPostIdsLimit(authorIds, usedPostIds, amount);
+    }
+
+    @Transactional
+    public List<Post> findSortedPostsFromPostDateAndAuthorsLimit(List<Long> followees, LocalDateTime lastPostDate,
+                                                                 int limit) {
+        return postRepository.findSortedPostsFromPostDateAndAuthorsLimit(followees, lastPostDate, limit);
     }
 }

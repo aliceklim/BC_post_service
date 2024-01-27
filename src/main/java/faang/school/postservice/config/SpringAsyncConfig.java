@@ -25,6 +25,7 @@ public class SpringAsyncConfig {
         executor.setCorePoolSize(corePoolSize);
         executor.setMaxPoolSize(maxPoolSize);
         executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("PostModTaskExecutor-");
         executor.initialize();
 
         return executor;
@@ -37,6 +38,54 @@ public class SpringAsyncConfig {
         executor.setMaxPoolSize(maxPoolSize);
         executor.setQueueCapacity(queueCapacity);
         executor.setThreadNamePrefix("FeedTaskExecutor-");
+        executor.initialize();
+
+        return executor;
+    }
+
+    @Bean(name = "commentTaskExecutor")
+    public TaskExecutor commentTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("CommentTaskExecutor-");
+        executor.initialize();
+
+        return executor;
+    }
+
+    @Bean(name = "likePostTaskExecutor")
+    public TaskExecutor likePostExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("LikePostTaskExecutor-");
+        executor.initialize();
+
+        return executor;
+    }
+
+    @Bean(name = "likeCommentTaskExecutor")
+    public TaskExecutor likeCommentTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("LikeCommentTaskExecutor-");
+        executor.initialize();
+
+        return executor;
+    }
+
+    @Bean(name = "postViewsTaskExecutor")
+    public TaskExecutor postViewsTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("PostViewsTaskExecutor-");
         executor.initialize();
 
         return executor;
