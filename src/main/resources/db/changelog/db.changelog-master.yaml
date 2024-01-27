@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/changeset/post_V005__resource.sql
   - include:
       file: db/changelog/changeset/post_V006__create_hashtag.sql
+  - include:
+      file: db/changelog/changeset/post_V007__comment_and_post_altered.sql

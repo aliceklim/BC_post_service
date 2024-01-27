@@ -3,7 +3,7 @@ package faang.school.postservice.service;
 import faang.school.postservice.dto.like.LikeDto;
 import faang.school.postservice.dto.like.LikeEventDto;
 import faang.school.postservice.dto.post.PostDto;
-import faang.school.postservice.publisher.LikeEventPublisher;
+import faang.school.postservice.messaging.publisher.LikeEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

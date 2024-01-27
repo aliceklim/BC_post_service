@@ -30,13 +30,13 @@ public interface PostMapper {
     @Mapping(target = "likesId", source = "likes", qualifiedByName = "toLikesId")
     @Mapping(target = "commentsId", source = "comments", qualifiedByName = "toCommentsId")
     @Mapping(target = "albumsId", source = "albums", qualifiedByName = "toAlbumsId")
-    @Mapping(target = "adId", source = "ad.id")
+    //@Mapping(target = "adId", source = "ad.id")
     PostDto toDto(Post post);
 
     @Mapping(target = "likes", source = "likesId", qualifiedByName = "toLikes")
     @Mapping(target = "comments", source = "commentsId", qualifiedByName = "toComments")
     @Mapping(target = "albums", source = "albumsId", qualifiedByName = "toAlbums")
-    @Mapping(target = "ad", source = "adId", qualifiedByName = "toAd")
+    //@Mapping(target = "ad", source = "adId", qualifiedByName = "toAd")
     Post toEntity(PostDto postDto);
 
     @Named(value = "toAd")

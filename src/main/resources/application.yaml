@@ -35,6 +35,10 @@ spring:
           name: post_view_channel
         post_save_cache:
           name: post_save_cache
+        util:
+          response-size: 20
+          cache-size: 500
+          comments-amount: 3
 
     kafka:
       bootstrap-servers: localhost:9092
@@ -110,6 +114,17 @@ post:
   ad-remover:
     scheduler:
       cron: "0 0/1 * 1/1 * ?" # every minute
+  moderation:
+    scheduler:
+      cron: "0 0 0 * * ?" # every day at 00:00:00
+      sublist-size: 100
+
+comment:
+  moderator:
+    scheduler:
+      cron: "0 0 12 * * ?" # every day 12:00
+  batch:
+    size: 50
 
 user-service:
   host: localhost
@@ -140,6 +155,13 @@ pool:
     maximum-pool-size: 15
     keep-alive-time: 5000
     capacity: 10000
+
+async:
+  thread-pool:
+    settings:
+      core-pool-size: 4
+      max-pool-size: 8
+      queue-capacity: 100
 
 page:
   size: 20

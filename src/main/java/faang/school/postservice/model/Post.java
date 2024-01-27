@@ -2,7 +2,6 @@ package faang.school.postservice.model;
 
 import faang.school.postservice.model.ad.Ad;
 import faang.school.postservice.model.album.Album;
-import faang.school.postservice.model.resource.Resource;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,6 +13,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Data
@@ -36,6 +36,9 @@ public class Post {
 
     @Column(name = "project_id")
     private Long projectId;
+
+    @Column(name = "views")
+    private long views;
 
     @OneToMany(mappedBy = "post", orphanRemoval = true)
     private List<Like> likes;
@@ -61,6 +64,9 @@ public class Post {
     @Column(name = "published", nullable = false)
     private boolean published;
 
+    @Column(name = "corrected", nullable = false)
+    private boolean corrected;
+
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
@@ -84,4 +90,57 @@ public class Post {
 
     @OneToMany(mappedBy = "post")
     private List<Resource> resources;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "verified_date")
+    private LocalDateTime verifiedDate;
+
+    @Column(name = "verified", nullable = false)
+    private boolean verified;
+
+    @Override
+    public String toString() {
+        return "Post{" +
+                "id=" + id +
+                ", content='" + content + '\'' +
+                ", authorId=" + authorId +
+                ", projectId=" + projectId +
+                ", views=" + views +
+                ", likes=" + likes +
+                ", comments=" + comments +
+                ", albums=" + albums +
+                ", ad=" + ad +
+                ", published=" + published +
+                ", corrected=" + corrected +
+                ", publishedAt=" + publishedAt +
+                ", scheduledAt=" + scheduledAt +
+                ", deleted=" + deleted +
+                ", createdAt=" + createdAt +
+                ", updatedAt=" + updatedAt +
+                ", verifiedDate=" + verifiedDate +
+                ", verified=" + verified +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Post post = (Post) o;
+        return id == post.id && views == post.views && published == post.published && corrected == post.corrected &&
+                deleted == post.deleted && verified == post.verified && Objects.equals(content, post.content) &&
+                Objects.equals(authorId, post.authorId) && Objects.equals(projectId, post.projectId) &&
+                Objects.equals(likes, post.likes) && Objects.equals(comments, post.comments) &&
+                Objects.equals(hashtags, post.hashtags) && Objects.equals(albums, post.albums) &&
+                Objects.equals(ad, post.ad) && Objects.equals(publishedAt, post.publishedAt) &&
+                Objects.equals(scheduledAt, post.scheduledAt) && Objects.equals(createdAt, post.createdAt) &&
+                Objects.equals(updatedAt, post.updatedAt) && Objects.equals(resources, post.resources) &&
+                Objects.equals(verifiedDate, post.verifiedDate);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, content, authorId, projectId, views, likes, comments, hashtags, albums, ad, published,
+                corrected, publishedAt, scheduledAt, deleted, createdAt, updatedAt, resources, verifiedDate, verified);
+    }
 }
