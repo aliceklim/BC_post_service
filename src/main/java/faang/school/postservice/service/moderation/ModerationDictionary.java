@@ -10,9 +10,12 @@ import org.springframework.stereotype.Component;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -22,7 +25,9 @@ public class ModerationDictionary {
 
     private final Set<String> profanityWords = new HashSet<>();
     @Value("classpath:profanity-words.txt")
-    private Resource profanityWordsFile;
+    //private Resource profanityWordsFile;
+    private Set<String> obsceneWordsDictionary;
+
 
     public boolean checkWordContent(String content) {
         String[] resultStrings = content.replaceAll("[^a-zA-ZА-Яа-я0-9\s]", "")
@@ -30,7 +35,7 @@ public class ModerationDictionary {
                 .split(" ");
 
         return Stream.of(resultStrings)
-                .anyMatch(word -> profanityWords.contains(word));
+                .anyMatch(word -> obsceneWordsDictionary.contains(word));
     }
 
     public void checkComment(Comment comment) {
@@ -45,13 +50,28 @@ public class ModerationDictionary {
         comment.setVerified(true);
     }
 
+    //@PostConstruct
+//    public void initProfanityWords() throws IOException {
+//        try (BufferedReader reader = new BufferedReader(new InputStreamReader(profanityWordsFile.getInputStream()))) {
+//            String line;
+//            while ((line = reader.readLine()) != null) {
+//                profanityWords.add(line.trim().toLowerCase());
+//            }
+//        }
+//        log.info("Obscene words dictionary has been initialized successfully");
+//    }
     @PostConstruct
-    public void initProfanityWords() throws IOException {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(profanityWordsFile.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                profanityWords.add(line.trim().toLowerCase());
-            }
+    public void initDictionary() {
+        Path filePath = Path.of("./src/main/resources/profanity-words.txt");
+        try {
+            obsceneWordsDictionary = Files.readAllLines(filePath)
+                    .stream()
+                    .map(word -> word.trim().toLowerCase())
+                    .collect(Collectors.toSet());
+        } catch (IOException e) {
+            log.error("IOException has occurred while file:" +
+                    " 'dictionary-of-obscene-words.txt' was reading");
+            throw new RuntimeException(e);
         }
         log.info("Dictionary of obscene words has initialized successfully");
     }
