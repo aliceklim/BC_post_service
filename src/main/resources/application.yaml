@@ -35,6 +35,10 @@ spring:
           name: post_view_channel
         post_save_cache:
           name: post_save_cache
+        util:
+          response-size: 20
+          cache-size: 500
+          comments-amount: 3
 
     kafka:
       bootstrap-servers: localhost:9092
