@@ -90,4 +90,16 @@ public class SpringAsyncConfig {
 
         return executor;
     }
+
+    @Bean(name = "feedHeaterTaskExecutor")
+    public TaskExecutor feedHeaterTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("FeedHeaterTaskExecutor-");
+        executor.initialize();
+
+        return executor;
+    }
 }
