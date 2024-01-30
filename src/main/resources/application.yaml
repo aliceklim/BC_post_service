@@ -35,11 +35,10 @@ spring:
           name: post_view_channel
         post_save_cache:
           name: post_save_cache
-        util:
-          response-size: 20
-          cache-size: 500
-          comments-amount: 3
-
+      util:
+        response-size: 20
+        cache-size: 500
+        comments-amount: 3
     kafka:
       bootstrap-servers: localhost:9092
       topics:
@@ -81,24 +80,24 @@ spring:
             core-pool-size: 4
             max-pool-size: 10
             queue-capacity: 1000
-        util:
-          batch-size: 1000
-      feed:
+      util:
+         batch-size: 1000
+    feed:
+      async:
+        core-pool-size: 2
+        max-pool-size: 6
+        queue-capacity: 1000
+      heater:
+        requests:
+          users:
+            path: http://localhost:8080/users
+            request-size: 1000
         async:
           core-pool-size: 2
           max-pool-size: 6
           queue-capacity: 1000
-        heater:
-          requests:
-            users:
-              path: http://localhost:8080/users
-              request-size: 1000
-          async:
-            core-pool-size: 2
-            max-pool-size: 6
-            queue-capacity: 1000
-          util:
-            posts-batch-size: 100
+        util:
+          posts-batch-size: 100
 
 server:
   port: 8081
