@@ -1,6 +1,7 @@
 package faang.school.postservice.service;
 
 import faang.school.postservice.client.UserServiceClient;
+import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.user.UserDto;
 import faang.school.postservice.mapper.redis.RedisPostMapper;
 import faang.school.postservice.mapper.redis.RedisUserMapper;
@@ -26,6 +27,7 @@ import java.util.Optional;
 public class RedisCacheService {
     private final RedisUserMapper redisUserMapper;
     private final RedisPostMapper redisPostMapper;
+    private final UserContext userContext;
     private final UserServiceClient userServiceClient;
     private final RedisKeyValueTemplate keyValueTemplate;
     private final RedisUserRepository redisUserRepository;
@@ -33,7 +35,7 @@ public class RedisCacheService {
 
     public UserDto findUserBy(long userId) {
         log.info("Searching for UserID {}", userId);
-        return userServiceClient.getUser(userId);
+        return userServiceClient.getUser(userContext.getUserId(), userId);
     }
 
     public Optional<RedisUser> findRedisUserBy(long userId) {
