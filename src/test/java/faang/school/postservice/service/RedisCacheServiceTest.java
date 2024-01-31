@@ -120,7 +120,7 @@ class RedisCacheServiceTest {
 
     @Test
     void findAndCacheRedisUserTest() {
-        when(userServiceClient.getUser(userId)).thenReturn(userDto);
+        when(userServiceClient.getUser(userId, userId)).thenReturn(userDto);
         when(redisUserRepository.save(redisUser)).thenReturn(redisUser);
 
         RedisUser result = redisCacheService.findOrCacheRedisUser(userId);
@@ -128,7 +128,7 @@ class RedisCacheServiceTest {
         assertEquals(redisUser, result);
         assertEquals(1, result.getVersion());
         verify(redisUserRepository).findById(userId);
-        verify(userServiceClient).getUser(userId);
+        verify(userServiceClient).getUser(userId, userId);
         verify(redisUserRepository).save(redisUser);
     }
 

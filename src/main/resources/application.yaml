@@ -127,7 +127,7 @@ comment:
 
 user-service:
   host: localhost
-  port: 8080
+  port: 8088
 project-service:
   host: localhost
   port: 8082

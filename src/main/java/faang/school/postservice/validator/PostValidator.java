@@ -49,10 +49,12 @@ public class PostValidator {
         }
     }
 
-    public void validateUserId(long id) {
+    public void validateUserId(Long id) {
         try {
-            userService.getUser(id);
+            userService.getUser(id, id);
         } catch (FeignException e) {
+            System.out.println("FeignException" + e.getMessage());
+            e.printStackTrace();
             throw new EntityNotFoundException("This user is not found");
         }
     }
