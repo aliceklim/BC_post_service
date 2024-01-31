@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -19,7 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(SpringExtension.class)
-public class RedisPostControllerTest {
+public class PostControllerTest {
     @Mock
     private PostService postService;
     private ObjectMapper objectMapper;
@@ -28,9 +29,9 @@ public class RedisPostControllerTest {
     private MockMvc mockMvc;
     private PostDto incorrectPostDto;
     private PostDto correctPostDto;
-    private final String POST_CONTENT = "some content for test";
-    private final Long CORRECT_ID = 1L;
-
+    private String postContent = "some content for test";
+    private Long postId = 1L;
+    private Long userId = 1L;
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(postController).build();
@@ -39,68 +40,68 @@ public class RedisPostControllerTest {
                 .content("   ")
                 .build();
         correctPostDto = PostDto.builder()
-                .id(CORRECT_ID)
-                .content(POST_CONTENT)
-                .authorId(CORRECT_ID)
+                .id(postId)
+                .content(postContent)
+                .authorId(postId)
                 .build();
     }
 
     @Test
     void testCreateDaftPost() {
-        postController.createPost(correctPostDto);
+        postController.createPost(userId, correctPostDto);
 
         verify(postService).crateDraftPost(correctPostDto);
     }
 
     @Test
     void testPublishPost() {
-        postController.publishPost(CORRECT_ID);
+        postController.publishPost(userId, postId);
 
-        verify(postService).publishPost(CORRECT_ID);
+        verify(postService).publishPost(postId);
     }
 
     @Test
     void testUpdatePost() {
-        correctPostDto.setId(CORRECT_ID);
+        correctPostDto.setId(postId);
 
-        postController.updatePost(correctPostDto);
+        postController.updatePost(userId, correctPostDto);
 
         verify(postService).updatePost(correctPostDto);
     }
 
     @Test
     void testSoftDelete() {
-        postController.softDeletePost(CORRECT_ID);
+        postController.softDeletePost(userId, postId);
 
-        verify(postService).softDeletePost(CORRECT_ID);
+        verify(postService).softDeletePost(postId);
     }
 
     @Test
     void testGetUserDrafts() {
-        postController.getUserDrafts(CORRECT_ID);
+        postController.getUserDrafts(userId, postId);
 
-        verify(postService).getUserDrafts(CORRECT_ID);
+        verify(postService).getUserDrafts(postId);
     }
 
     @Test
     void testGetProjectDrafts() {
-        postController.getProjectDrafts(CORRECT_ID);
+        postController.getProjectDrafts(userId, postId);
 
-        verify(postService).getProjectDrafts(CORRECT_ID);
+        verify(postService).getProjectDrafts(postId);
     }
 
     @Test
     void testGetUserPosts() {
-        postController.getAllPostsByAuthorId(CORRECT_ID);
+        postController.getAllPostsByAuthorId(userId, postId);
 
-        verify(postService).getAllPostsByAuthorId(CORRECT_ID);
+        verify(postService).getAllPostsByAuthorId(postId);
     }
 
     @Test
     void testGetProjectPosts() {
-        postController.getAllPostsByProjectId(CORRECT_ID);
+        postController.getAllPostsByProjectId(userId, postId);
 
-        verify(postService).getAllPostsByProjectId(CORRECT_ID);
+        verify(postService).getAllPostsByProjectId(postId);
     }
 
     @Test
@@ -111,8 +112,6 @@ public class RedisPostControllerTest {
 
     @Test
     void softDeletePostTest() throws Exception {
-        Long postId = 1L;
-
         mockMvc.perform(MockMvcRequestBuilders.delete("/api/v1/posts/{id}/soft-delete", postId)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(MockMvcResultMatchers.status().isOk());
