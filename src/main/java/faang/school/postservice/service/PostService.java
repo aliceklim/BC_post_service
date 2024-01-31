@@ -38,7 +38,6 @@ public class PostService {
     private final PostMapper postMapper;
     private final PostValidator postValidator;
     private final PostRepository postRepository;
-    private final UserContext userContext;
     private final PublisherService publisherService;
     private final RedisCacheService redisCacheService;
     private final KafkaPostProducer kafkaPostProducer;

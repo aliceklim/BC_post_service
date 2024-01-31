@@ -165,7 +165,7 @@ public class PostController {
 
         return postService.getAllPostsByProjectIdAndPublished(projectId);
     }
-
+    // TODO: now returns posts with content, needs to be filtered for #
     @GetMapping("/all/hashtag/")
     @Operation(
             summary = "Gets all posts for a hashtag")
