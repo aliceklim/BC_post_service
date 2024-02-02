@@ -277,8 +277,12 @@ public class PostControllerTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
         verify(postService, times(1)).getAllPostsByProjectId(idCaptor.capture());
         assertEquals(projectId, idCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(List.of(postDto)));
+
     }
 
     @Test
@@ -292,8 +296,12 @@ public class PostControllerTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
         verify(postService, times(1)).getAllPostsByAuthorIdAndPublished(idCaptor.capture());
         assertEquals(userId, idCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(List.of(postDto)));
+
     }
 
     @Test
@@ -306,7 +314,11 @@ public class PostControllerTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
         verify(postService, times(1)).getAllPostsByProjectIdAndPublished(idCaptor.capture());
         assertEquals(projectId, idCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(List.of(postDto)));
+
     }
 }
