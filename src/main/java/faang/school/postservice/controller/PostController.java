@@ -87,7 +87,7 @@ public class PostController {
             summary = "Finds post by id")
     @Parameter(description = "PostID to find")
     private PostDto getPostById(@RequestHeader("x-user-id")Long currentUserId,
-                                @NotNull @PathVariable("id") Long postId) {
+                                @PathVariable("id") Long postId) {
         log.info("Endpoint <getPostById>, uri='/posts/{}' was called successfully", postId);
         userContext.setUserId(currentUserId);
 
@@ -123,7 +123,7 @@ public class PostController {
             summary = "Gets all user posts")
     @Parameter(description = "UID to search for posts")
     public List<PostDto> getAllPostsByAuthorId(@RequestHeader("x-user-id")Long currentUserId,
-                                               @NotNull @PathVariable Long userId) {
+                                               @PathVariable Long userId) {
         log.info("Endpoint <getAllPostsByAuthorId>, uri='/posts/author/{}/all' was called", userId);
         userContext.setUserId(currentUserId);
 
@@ -135,7 +135,7 @@ public class PostController {
             summary = "Gets all posts by ProjectID")
     @Parameter(description = "ProjectId to search for posts")
     public List<PostDto> getAllPostsByProjectId(@RequestHeader("x-user-id")Long currentUserId,
-                                                @NotNull @PathVariable Long projectId) {
+                                                @PathVariable Long projectId) {
         log.info("Endpoint <getAllPostsByProjectId>, uri='/posts/project/{}/all' was called", projectId);
         userContext.setUserId(currentUserId);
 
@@ -147,7 +147,7 @@ public class PostController {
             summary = "Gets all user's published posts")
     @Parameter(description = "UID to search for posts")
     public List<PostDto> getAllPostsByAuthorIdAndPublished(@RequestHeader("x-user-id")Long currentUserId,
-                                                           @NotNull @PathVariable Long userId) {
+                                                           @PathVariable Long userId) {
         log.info("Endpoint <getAllPostsByAuthorIdAndPublished>, uri='/posts/all/author/{}/published' was called", userId);
         userContext.setUserId(currentUserId);
 
@@ -159,7 +159,7 @@ public class PostController {
             summary = "Gets all posts for a project")
     @Parameter(description = "ProjectID to search for posts")
     public List<PostDto> getAllPostsByProjectIdAndPublished(@RequestHeader("x-user-id")Long currentUserId,
-                                                            @NotNull @PathVariable Long projectId) {
+                                                            @PathVariable Long projectId) {
         log.info("Endpoint <getAllPostsByProjectIdAndPublished>, uri='/posts/all/project/{}/published' was called", projectId);
         userContext.setUserId(currentUserId);
 
@@ -171,7 +171,7 @@ public class PostController {
             summary = "Gets all posts for a hashtag")
     @Parameter(description = "Hashtag and info for pageable")
     public Page<PostDto> getAllPostsByHashtag(@RequestHeader("x-user-id")Long currentUserId,
-                                              @NotNull @RequestParam String hashtagContent, Pageable pageable){
+                                              @RequestParam String hashtagContent, Pageable pageable){
         log.info("Endpoint <getAllPostsByHashtag>, uri='/posts/all/hashtag/' {} was called", hashtagContent);
         userContext.setUserId(currentUserId);
 

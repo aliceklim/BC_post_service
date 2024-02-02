@@ -7,18 +7,23 @@ import faang.school.postservice.service.PostService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.http.MediaType;
-import static org.mockito.Mockito.verify;
+import java.util.List;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(SpringExtension.class)
 public class PostControllerTest {
@@ -31,19 +36,26 @@ public class PostControllerTest {
     private PostController postController;
     private MockMvc mockMvc;
     private PostDto incorrectPostDto;
-    private PostDto correctPostDto;
+    private PostDto postDto;
     private String postContent = "some content for test";
     private Long postId = 1L;
     private Long userId = 1L;
     private Long projectId = 1L;
+    private ArgumentCaptor<PostDto> postDtoCaptor;
+    private ArgumentCaptor<Long> idCaptor;
+    private MvcResult mvcResult;
+    private String actualResponseBody;
+
     @BeforeEach
     void setUp() {
+        postDtoCaptor = ArgumentCaptor.forClass(PostDto.class);
+        idCaptor = ArgumentCaptor.forClass(Long.class);
         mockMvc = MockMvcBuilders.standaloneSetup(postController).build();
         objectMapper = new ObjectMapper();
         incorrectPostDto = PostDto.builder()
                 .content("   ")
                 .build();
-        correctPostDto = PostDto.builder()
+        postDto = PostDto.builder()
                 .id(postId)
                 .content(postContent)
                 .authorId(postId)
@@ -51,68 +63,17 @@ public class PostControllerTest {
     }
 
     @Test
-    void testCreateDaftPost() {
-        postController.createPost(userId, correctPostDto);
-
-        verify(postService).crateDraftPost(correctPostDto);
-    }
-
-    @Test
-    void testPublishPost() {
-        postController.publishPost(userId, postId);
-
-        verify(postService).publishPost(postId);
-    }
-
-    @Test
-    void testUpdatePost() {
-        correctPostDto.setId(postId);
-
-        postController.updatePost(userId, correctPostDto);
-
-        verify(postService).updatePost(correctPostDto);
-    }
-
-    @Test
-    void testSoftDelete() {
-        postController.softDeletePost(userId, postId);
-
-        verify(postService).softDeletePost(postId);
-    }
-
-    @Test
-    void testGetUserDrafts() {
-        postController.getUserDrafts(userId, postId);
-
-        verify(postService).getUserDrafts(postId);
-    }
-
-    @Test
-    void testGetProjectDrafts() {
-        postController.getProjectDrafts(userId, postId);
-
-        verify(postService).getProjectDrafts(postId);
-    }
-
-    @Test
-    void testGetUserPosts() {
-        postController.getAllPostsByAuthorId(userId, postId);
-
-        verify(postService).getAllPostsByAuthorId(postId);
-    }
-
-    @Test
-    void testGetProjectPosts() {
-        postController.getAllPostsByProjectId(userId, postId);
-
-        verify(postService).getAllPostsByProjectId(postId);
-    }
-
-    @Test
-    void publishPost() throws Exception {
-        mockMvc.perform(post("/api/v1/posts/1/publish")
+    void publishPostTest() throws Exception {
+        when(postService.publishPost(postId)).thenReturn(postDto);
+        mvcResult = mockMvc.perform(post("/api/v1/posts/{id}/publish", postId)
                         .header("x-user-id", String.valueOf(userId)))
-                .andExpect(status().isOk());
+                .andReturn();
+
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
+        verify(postService, times(1)).publishPost(idCaptor.capture());
+        assertEquals(postId, idCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(postDto));
     }
 
     @Test
@@ -121,15 +82,56 @@ public class PostControllerTest {
                         .header("x-user-id", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(MockMvcResultMatchers.status().isOk());
+
+        verify(postService, times(1)).softDeletePost(idCaptor.capture());
+        assertEquals(postId, idCaptor.getValue());
     }
 
     @Test
     void createDraftPostTest() throws Exception {
+        when(postService.crateDraftPost(postDto)).thenReturn(postDto);
+        mvcResult = mockMvc.perform(post("/api/v1/posts/drafts")
+                        .header("x-user-id", String.valueOf(userId))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(objectMapper.writeValueAsString(postDto)))
+                .andExpect(status().isOk())
+                        .andReturn();
+
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
+        verify(postService, times(1)).crateDraftPost(postDtoCaptor.capture());
+        assertEquals(postDto, postDtoCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(postDto));
+    }
+
+    @Test
+    void createDraftPostWhenPostIdNull_ThenReturns400Test() throws Exception {
+        postDto.setId(null);
         mockMvc.perform(post("/api/v1/posts/drafts")
                         .header("x-user-id", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
-                .content(objectMapper.writeValueAsString(correctPostDto)))
-                .andExpect(status().isOk());
+                        .content(objectMapper.writeValueAsString(postDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createDraftPostWhenPostContentAbsent_ThenReturns400Test() throws Exception {
+        postDto.setContent("");
+        mockMvc.perform(post("/api/v1/posts/drafts")
+                        .header("x-user-id", String.valueOf(userId))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(objectMapper.writeValueAsString(postDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createDraftPostWhenPostAuthorIsNull_ThenReturns400Test() throws Exception {
+        postDto.setAuthorId(null);
+        mockMvc.perform(post("/api/v1/posts/drafts")
+                        .header("x-user-id", String.valueOf(userId))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(objectMapper.writeValueAsString(postDto)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -141,20 +143,50 @@ public class PostControllerTest {
     }
 
     @Test
-    void publishPostTest() throws Exception {
-        mockMvc.perform(post("/api/v1/posts/{id}/publish", postId)
-                        .header("x-user-id", String.valueOf(userId))
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+    void updatePostTest() throws Exception {
+        when(postService.updatePost(postDto)).thenReturn(postDto);
+        mvcResult = mockMvc.perform(put("/api/v1/posts/edit")
+                .header("x-user-id", String.valueOf(userId))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(postDto)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
+        verify(postService, times(1)).updatePost(postDtoCaptor.capture());
+        assertEquals(postDto, postDtoCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(postDto));
     }
 
     @Test
-    void updatePostTest() throws Exception {
+    void updatePostWhenPostIdNull_ThenReturns400Test() throws Exception {
+        postDto.setId(null);
         mockMvc.perform(put("/api/v1/posts/edit")
-                .header("x-user-id", String.valueOf(userId))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(correctPostDto)))
-                .andExpect(status().isOk());
+                        .header("x-user-id", String.valueOf(userId))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(objectMapper.writeValueAsString(postDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updatePostWhenPostContentAbsent_ThenReturns400Test() throws Exception {
+        postDto.setContent("");
+        mockMvc.perform(put("/api/v1/posts/edit")
+                        .header("x-user-id", String.valueOf(userId))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(objectMapper.writeValueAsString(postDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updatePostWhenPostAuthorIsNull_ThenReturns400Test() throws Exception {
+        postDto.setAuthorId(null);
+        mockMvc.perform(put("/api/v1/posts/edit")
+                        .header("x-user-id", String.valueOf(userId))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(objectMapper.writeValueAsString(postDto)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -163,61 +195,118 @@ public class PostControllerTest {
                 .header("x-user-id", String.valueOf(userId))
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
+
+        verify(postService, times(1)).softDeletePost(idCaptor.capture());
+        assertEquals(postId, idCaptor.getValue());
     }
 
     @Test
     void getPostByIdTest() throws Exception {
-        mockMvc.perform(get("/api/v1/posts/{id}", postId)
+        when(postService.getPostById(postId)).thenReturn(postDto);
+        mvcResult = mockMvc.perform(get("/api/v1/posts/{id}", postId)
                 .header("x-user-id", String.valueOf(userId))
                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
+        verify(postService, times(1)).getPostById(idCaptor.capture());
+        assertEquals(postId, idCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(postDto));
     }
 
     @Test
     void getUserDraftsTest() throws Exception{
-        mockMvc.perform(get("/api/v1/posts/drafts/users/{id}", userId)
+        postDto.setAuthorId(1l);
+        when(postService.getUserDrafts(1L)).thenReturn(List.of(postDto));
+        mvcResult = mockMvc.perform(get("/api/v1/posts/drafts/users/{id}", userId)
                 .header("x-user-id", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
+        verify(postService, times(1)).getUserDrafts(idCaptor.capture());
+        assertEquals(userId, idCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(List.of(postDto)));
     }
 
     @Test
     void getProjectDraftsTest() throws Exception{
-        mockMvc.perform(get("/api/v1/posts/drafts/projects/{id}", projectId)
+        postDto.setProjectId(1l);
+        when(postService.getProjectDrafts(1L)).thenReturn(List.of(postDto));
+        mvcResult = mockMvc.perform(get("/api/v1/posts/drafts/projects/{id}", projectId)
                         .header("x-user-id", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
+        verify(postService, times(1)).getProjectDrafts(idCaptor.capture());
+        assertEquals(projectId, idCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(List.of(postDto)));
     }
 
     @Test
     void getAllPostsByAuthorIdTest() throws Exception{
-        mockMvc.perform(get("/api/v1/posts/author/{userId}/all", userId)
+        postDto.setAuthorId(1L);
+        when(postService.getAllPostsByAuthorId(1L)).thenReturn(List.of(postDto));
+        mvcResult = mockMvc.perform(get("/api/v1/posts/author/{userId}/all", userId)
                         .header("x-user-id", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+
+        actualResponseBody = mvcResult.getResponse().getContentAsString();
+
+        verify(postService, times(1)).getAllPostsByAuthorId(idCaptor.capture());
+        assertEquals(userId, idCaptor.getValue());
+        assertThat(actualResponseBody).isEqualToIgnoringWhitespace(objectMapper.writeValueAsString(List.of(postDto)));
     }
 
     @Test
     void getAllPostsByProjectIdTest() throws Exception{
-        mockMvc.perform(get("/api/v1/posts/project/{projectId}/all", projectId)
+        postDto.setProjectId(1L);
+        when(postService.getAllPostsByProjectId(1L)).thenReturn(List.of(postDto));
+        mvcResult = mockMvc.perform(get("/api/v1/posts/project/{projectId}/all", projectId)
                         .header("x-user-id", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+
+        verify(postService, times(1)).getAllPostsByProjectId(idCaptor.capture());
+        assertEquals(projectId, idCaptor.getValue());
     }
 
     @Test
     void getAllPostsByAuthorIdAndPublishedTest() throws Exception{
-        mockMvc.perform(get("/api/v1/posts/all/author/{userId}/published", userId)
+        postDto.setAuthorId(1L);
+        postDto.setPublished(true);
+        when(postService.getAllPostsByAuthorIdAndPublished(1L)).thenReturn(List.of(postDto));
+        mvcResult = mockMvc.perform(get("/api/v1/posts/all/author/{userId}/published", userId)
                         .header("x-user-id", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+
+        verify(postService, times(1)).getAllPostsByAuthorIdAndPublished(idCaptor.capture());
+        assertEquals(userId, idCaptor.getValue());
     }
 
     @Test
     void getAllPostsByProjectIdAndPublishedTest() throws Exception{
-        mockMvc.perform(get("/api/v1/posts/all/project/{projectId}/published", projectId)
+        postDto.setProjectId(1L);
+        when(postService.getAllPostsByProjectIdAndPublished(1L)).thenReturn(List.of(postDto));
+        mvcResult = mockMvc.perform(get("/api/v1/posts/all/project/{projectId}/published", projectId)
                         .header("x-user-id", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+
+        verify(postService, times(1)).getAllPostsByProjectIdAndPublished(idCaptor.capture());
+        assertEquals(projectId, idCaptor.getValue());
     }
 }
