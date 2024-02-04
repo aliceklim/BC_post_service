@@ -1,10 +1,11 @@
 package faang.school.postservice.service;
 
+import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.comment.CommentDto;
 import faang.school.postservice.dto.kafka.CommentPostEvent;
 import faang.school.postservice.dto.kafka.EventAction;
 import faang.school.postservice.dto.redis.CommentEventDto;
-import faang.school.postservice.exception.DataValidationException;
+import faang.school.postservice.exception.DataNotFoundException;
 import faang.school.postservice.mapper.CommentMapper;
 import faang.school.postservice.mapper.redis.RedisCommentMapper;
 import faang.school.postservice.model.Comment;
@@ -17,18 +18,18 @@ import faang.school.postservice.validator.CommentValidator;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.text.MessageFormat;
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CommentService {
+    private final UserContext userContext;
     private final CommentRepository commentRepository;
     private final CommentMapper commentMapper;
     private final PostService postService;
@@ -42,15 +43,15 @@ public class CommentService {
     public CommentDto create(CommentDto commentDto){
         Post post = postService.findAlreadyPublishedAndNotDeletedPost(commentDto.getPostId())
                 .orElseThrow(() ->
-                        new EntityNotFoundException(String.format("PostID %d not published yet or already deleted",
+                        new faang.school.postservice.exception.EntityNotFoundException(String.format("PostID %d not published yet or already deleted",
                                 commentDto.getPostId())));
         Comment comment = commentMapper.toEntity(commentDto);
         comment.setPost(post);
         Comment entity = commentRepository.save(comment);
         log.info("CommentId {} created and saved", entity.getId());
 
-        publishCommentCreationEvent(comment);
-        publishKafkaCommentEvent(comment, EventAction.CREATE);
+        publishCommentCreationEvent(entity);
+        publishKafkaCommentEvent(entity, EventAction.CREATE);
 
         redisCacheService.updateOrCacheUser(redisCacheService.findUserBy(comment.getAuthorId()));
 
@@ -72,22 +73,37 @@ public class CommentService {
     }
 
     @Transactional
-    public void delete(Long currentUserId, Long commentId){
+    public void delete(Long commentId){
         Comment comment = commentRepository.findById(commentId)
                         .orElseThrow(()-> new EntityNotFoundException(
                                 MessageFormat.format(ErrorMessage.COMMENT_NOT_FOUND_FORMAT, commentId)));
-        commentValidator.validateCommentAuthor(currentUserId, comment.getAuthorId());
+        commentValidator.validateCommentAuthor(userContext.getUserId(), comment.getAuthorId());
         commentValidator.validateUserExist(comment.getAuthorId());
         log.info("CommentID {} is deleted", comment.getId());
+
+        publishKafkaCommentEvent(comment, EventAction.DELETE);
 
         commentRepository.delete(comment);
     }
 
-    public List<CommentDto> getCommentsForPost(Long postId){
-        return commentRepository.findAllByPostId(postId).stream()
-                .sorted(Comparator.comparing(Comment::getCreatedAt).reversed())
+    public Page<CommentDto> getCommentsByPost(Long postId, Pageable pageable) {
+        ExampleMatcher exampleMatcher = ExampleMatcher.matching()
+                .withIgnorePaths("authorId", "verified", "post.views",
+                        "post.published", "post.corrected", "post.deleted",
+                        "post.verified")
+                .withMatcher("post.id", ExampleMatcher.GenericPropertyMatcher::exact);
+
+        Example<Comment> example = Example.of(buildCommentExampleBy(postId), exampleMatcher);
+
+        pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Order.asc("createdAt")));
+
+        Page<Comment> page = commentRepository.findAll(example, pageable);
+
+        List<CommentDto> dtos = page.get()
                 .map(commentMapper::toDto)
                 .toList();
+
+        return new PageImpl<>(dtos);
     }
 
     private void publishCommentCreationEvent(Comment comment) {
@@ -130,5 +146,11 @@ public class CommentService {
 
     public void saveAll(List<Comment> comments) {
         commentRepository.saveAll(comments);
+    }
+
+    @Transactional
+    public Comment getComment(long commentId) {
+        return commentRepository.findById(commentId)
+                .orElseThrow(() -> new DataNotFoundException(String.format("Comment with ID: %d doesn't exist", commentId)));
     }
 }

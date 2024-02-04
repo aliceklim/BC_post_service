@@ -1,6 +1,9 @@
 package faang.school.postservice.repository;
 
 import faang.school.postservice.model.Comment;
+import org.springframework.data.domain.Example;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
@@ -15,4 +18,6 @@ public interface CommentRepository extends CrudRepository<Comment, Long> {
 
     @Query("SELECT c FROM Comment c WHERE c.verified IS NULL")
     List<Comment> findUnverifiedComments();
+
+    Page<Comment> findAll(Example<Comment> example, Pageable pageable);
 }

@@ -8,8 +8,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +27,7 @@ public class CommentController {
 
     private final CommentService commentService;
     private final CommentValidator commentValidator;
+    private final UserContext userContext;
 
     @PostMapping("/new")
     @Operation(
@@ -35,6 +40,7 @@ public class CommentController {
         log.info("Endpoint <createComment>, uri='/comments/new' was called");
         commentValidator.validateNewComment(
                 commentDto.getId(), commentDto.getPostId(), currentUserId, commentDto.getAuthorId());
+        userContext.setUserId(currentUserId);
 
         return commentService.create(commentDto);
     }
@@ -50,6 +56,7 @@ public class CommentController {
         log.info("Endpoint <updateComment>, uri='/comments/edit' was called");
         commentValidator.validateExistingComment(
                 commentDto.getId(), commentDto.getPostId(), currentUserId, commentDto.getAuthorId());
+        userContext.setUserId(currentUserId);
 
         return commentService.update(commentDto);
     }
@@ -63,17 +70,21 @@ public class CommentController {
     public void deleteComment(@RequestHeader("x-user-id")Long currentUserId,
                               @PathVariable Long commentId) {
         log.info("Endpoint <deleteComment>, uri='/comments/{}' was called", commentId);
+        userContext.setUserId(currentUserId);
 
-        commentService.delete(currentUserId, commentId);
+        commentService.delete(commentId);
     }
 
     @GetMapping("/{postId}")
     @Operation(
             summary = "Gets a list of comments for postId")
-    @Parameter(description = "Receives a postId to search for its comments")
-    public List<CommentDto> getCommentsForPost(@PathVariable Long postId) {
+    @Parameter(description = "Receives a postId to search for its comments, return a page of 20 comments")
+    public Page<CommentDto> getCommentsByPost(@RequestHeader("x-user-id")Long currentUserId,
+                                              @PathVariable @NotNull Long postId,
+                                              @PageableDefault(size = 20) Pageable pageable) {
         log.info("Endpoint <getCommentsForPost>, uri='/comments/{}' was called", postId);
+        userContext.setUserId(currentUserId);
 
-        return commentService.getCommentsForPost(postId);
+        return commentService.getCommentsByPost(postId, pageable);
     }
 }
