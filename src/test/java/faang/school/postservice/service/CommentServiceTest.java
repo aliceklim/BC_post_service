@@ -1,134 +1,222 @@
 package faang.school.postservice.service;
 
+import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.comment.CommentDto;
-import faang.school.postservice.exception.DataValidationException;
+import faang.school.postservice.dto.kafka.CommentPostEvent;
+import faang.school.postservice.dto.kafka.EventAction;
+import faang.school.postservice.dto.redis.CommentEventDto;
+import faang.school.postservice.dto.user.UserDto;
+import faang.school.postservice.exception.EntityNotFoundException;
 import faang.school.postservice.mapper.CommentMapper;
+import faang.school.postservice.mapper.CommentMapperImpl;
+import faang.school.postservice.mapper.redis.RedisCommentMapper;
+import faang.school.postservice.mapper.redis.RedisCommentMapperImpl;
+import faang.school.postservice.messaging.publisher.KafkaCommentProducer;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.CommentRepository;
-import faang.school.postservice.repository.PostRepository;
-import faang.school.postservice.util.ErrorMessage;
-import jakarta.persistence.EntityNotFoundException;
+import faang.school.postservice.service.redis.CommentEventPublisher;
+import faang.school.postservice.validator.CommentValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mapstruct.factory.Mappers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.*;
 
-import java.text.MessageFormat;
 import java.time.LocalDateTime;
 import java.time.Month;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class CommentServiceTest {
     @Mock
+    private PostService postService;
+    @Mock
+    private RedisCacheService redisCacheService;
+    @Mock
+    private UserContext userContext;
+    @Mock
     private CommentRepository commentRepository;
     @Mock
-    private PostRepository postRepository;
+    private CommentEventPublisher redisCommentEventPublisher;
+    @Mock
+    private KafkaCommentProducer kafkaCommentEventPublisher;
     @Spy
-    private CommentMapper commentMapper = Mappers.getMapper(CommentMapper.class);
+    private CommentMapper commentMapper = new CommentMapperImpl();
+    @Spy
+    private RedisCommentMapper redisCommentMapper = new RedisCommentMapperImpl();
+    @Mock
+    private CommentValidator commentValidator;
     @InjectMocks
     private CommentService commentService;
-
-    private CommentDto commentDto;
-    private CommentDto updatedCommentDto;
+    private CommentDto commentCreateDto;
+    private CommentDto commentUpdateDto;
     private Comment comment;
-    private Long commentId;
+    private CommentEventDto commentEventDto;
+    private CommentPostEvent commentPostEvent;
+    private UserDto userDto;
+    private Post post;
+    private final Long authorId = 1L;
+    private final Long postId = 1L;
+    private final Long commentId = 1L;
+    private final LocalDateTime currentTime = LocalDateTime.now();
 
     @BeforeEach
-    void setUp(){
-        commentId = 1L;
-        commentDto = CommentDto.builder().id(commentId).content("content").build();
-        updatedCommentDto = CommentDto.builder().id(commentId).content("updated").build();
-        comment = commentMapper.toEntity(updatedCommentDto);
+    void setUp() {
+        userContext.setUserId(authorId);
+        post = Post.builder()
+                .id(postId)
+                .build();
+        commentCreateDto = CommentDto.builder()
+                .content("content")
+                .authorId(authorId)
+                .postId(postId)
+                .build();
+        commentUpdateDto = CommentDto.builder()
+                .id(commentId)
+                .content("update content")
+                .authorId(authorId)
+                .postId(postId)
+                .build();
+        comment = Comment.builder()
+                .id(commentId)
+                .content("content")
+                .authorId(authorId)
+                .post(post)
+                .createdAt(currentTime)
+                .build();
+        commentEventDto = CommentEventDto.builder()
+                .commentId(commentId)
+                .authorId(authorId)
+                .postId(postId)
+                .createdAt(currentTime)
+                .build();
+        commentPostEvent = CommentPostEvent.builder()
+                .postId(postId)
+                .commentDto(redisCommentMapper.toDto(comment))
+                .eventAction(EventAction.CREATE)
+                .build();
+        userDto = UserDto.builder()
+                .id(authorId)
+                .build();
+
     }
 
     @Test
-    void createCommentTest(){
-        Post post = Post.builder().id(1L).build();
-        CommentDto commentDto = CommentDto.builder().postId(post.getId()).build();
-        Comment comment = Comment.builder().post(post).build();
-        lenient().when(commentRepository.save(comment)).thenReturn(comment);
-        lenient().when(postRepository.findById(post.getId())).thenReturn(Optional.of(post));
+    void createCommentSuccessfulTest(){
+        when(postService.findAlreadyPublishedAndNotDeletedPost(postId))
+                .thenReturn(Optional.of(post));
+        when(commentRepository.save(any(Comment.class))).thenReturn(comment);
+        when(redisCacheService.findUserBy(authorId)).thenReturn(userDto);
 
-        CommentDto expectedDto = CommentDto.builder().postId(post.getId()).postId(post.getId()).build();
-        CommentDto result = commentService.create(commentDto);
+        CommentDto result = commentService.create(commentCreateDto);
 
-        Mockito.verify(commentRepository).save(comment);
-        assertEquals(expectedDto.getPostId(), result.getPostId());
+        assertEquals(commentMapper.toDto(comment), result);
+        verify(postService).findAlreadyPublishedAndNotDeletedPost(postId);
+        verify(commentRepository).save(any(Comment.class));
+        verify(redisCommentEventPublisher).publish(commentEventDto);
+        verify(kafkaCommentEventPublisher).publish(commentPostEvent);
+        verify(redisCacheService).findUserBy(authorId);
+        verify(redisCacheService).updateOrCacheUser(userDto);
     }
 
     @Test
-    public void commentUpdateTest() {
+    void createCommentPostNotPublishedTest(){
+        when(postService.findAlreadyPublishedAndNotDeletedPost(commentCreateDto.getPostId())).thenReturn(Optional.empty());
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class, () -> {
+            commentService.create(commentCreateDto);
+        });
+
+        assertEquals("PostID 1 not published yet or already deleted", exception.getMessage());
+    }
+
+    @Test
+    void updateCommentTest() {
         when(commentRepository.findById(commentId)).thenReturn(Optional.of(comment));
-        CommentDto resultDto = commentService.update(updatedCommentDto);
 
-        assertEquals(updatedCommentDto.getContent(), resultDto.getContent());
+        CommentDto result = commentService.update(commentUpdateDto);
+
+        assertEquals("update content", result.getContent());
+
+        verify(commentRepository).findById(commentId);
+        verify(kafkaCommentEventPublisher).publish(any(CommentPostEvent.class));
     }
 
     @Test
-    public void updateCommentNotFoundTest() {
+    void findUnverifiedCommentsTest() {
+        when(commentRepository.findUnverifiedComments()).thenReturn(List.of(comment));
 
-        Mockito.lenient().when(commentRepository.findById(commentId)).thenReturn(Optional.empty());
+        List<Comment> result = commentService.findUnverifiedComments();
 
-        DataValidationException exception = assertThrows(DataValidationException.class,
-                () -> commentService.update(commentDto));
-
-        String expectedMessage = MessageFormat.format(ErrorMessage.COMMENT_NOT_FOUND_FORMAT, commentId);
-        assertEquals(expectedMessage, exception.getMessage());
+        assertEquals(List.of(comment), result);
+        verify(commentRepository).findUnverifiedComments();
     }
 
     @Test
-    public void deleteCommentSuccessfulTest(){
-        Comment comment = Comment.builder().id(commentId).build();
+    void deleteCommentTest() {
+        CommentPostEvent deleteEvent = CommentPostEvent.builder()
+                .postId(postId)
+                .commentDto(redisCommentMapper.toDto(comment))
+                .eventAction(EventAction.DELETE)
+                .build();
 
+        when(userContext.getUserId()).thenReturn(authorId);
         when(commentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+
         commentService.delete(commentId);
 
-        Mockito.verify(commentRepository, Mockito.times(1)).delete(comment);
+        verify(userContext).getUserId();
+        verify(commentRepository).findById(commentId);
+        verify(commentRepository).delete(comment);
+        verify(kafkaCommentEventPublisher).publish(deleteEvent);
     }
 
     @Test
-    public void deleteCommentNotFoundTest(){
-        when(commentRepository.findById(commentId)).thenReturn(Optional.empty());
+    void getCommentsByPostTest() {
+        Pageable pageable = PageRequest.of(0, 5);
+        Pageable sortedPageable = PageRequest.of(0, 5, Sort.by(Sort.Order.asc("createdAt")));
 
-        String expectedMessage = MessageFormat.format(ErrorMessage.COMMENT_NOT_FOUND_FORMAT, commentId);
+        ExampleMatcher exampleMatcher = ExampleMatcher.matching()
+                .withIgnorePaths("authorId", "verified", "post.views",
+                        "post.published", "post.corrected", "post.deleted",
+                        "post.verified")
+                .withMatcher("post.id", ExampleMatcher.GenericPropertyMatcher::exact);
 
-        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
-                () -> commentService.delete(commentId));
-        assertEquals(expectedMessage, exception.getMessage());
+        Example<Comment> example = Example.of(Comment.builder().post(post).build(), exampleMatcher);
+        Page<Comment> page = new PageImpl<>(new ArrayList<>(List.of(comment)));
+        Page<CommentDto> expected = new PageImpl<>(List.of(commentMapper.toDto(comment)));
+
+        when(commentRepository.findAll(example, sortedPageable)).thenReturn(page);
+
+        Page<CommentDto> result = commentService.getCommentsByPost(postId, pageable);
+
+        assertEquals(expected, result);
+        verify(commentRepository).findAll(example, sortedPageable);
     }
 
     @Test
-    public void getCommentsForPostSortedByCreationDateTest(){
-        Long postId = 1L;
-        Comment comment1 = Comment.builder().createdAt(
-                LocalDateTime.of(2023, Month.JULY, 28, 0, 0, 0)).build();
-        Comment comment2 = Comment.builder().createdAt(
-                LocalDateTime.of(2023, Month.JULY, 25, 0, 0, 0)).build();
-        Comment comment3 = Comment.builder().createdAt(
-                LocalDateTime.of(2023, Month.JULY, 15, 0, 0, 0)).build();
+    void getCommentTest() {
+        when(commentRepository.findById(commentId)).thenReturn(Optional.of(comment));
 
-        List<Comment> commentList = List.of(comment3, comment2, comment1);
-        List<CommentDto> expectedList = List.of(
-                commentMapper.toDto(comment1),
-                commentMapper.toDto(comment2),
-                commentMapper.toDto(comment3));
+        Comment result = commentService.getComment(commentId);
 
-        when(commentRepository.findAllByPostId(postId)).thenReturn(commentList);
-        List<CommentDto> result = commentService.getCommentsForPost(postId);
+        assertEquals(comment, result);
+        verify(commentRepository).findById(commentId);
+    }
 
-        assertEquals(expectedList, result);
+    @Test
+    void saveAllTest() {
+        commentService.saveAll(List.of(comment));
+
+        verify(commentRepository).saveAll(List.of(comment));
     }
 }
