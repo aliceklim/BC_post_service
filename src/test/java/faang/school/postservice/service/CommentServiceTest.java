@@ -51,7 +51,7 @@ public class CommentServiceTest {
         commentId = 1L;
         commentDto = CommentDto.builder().id(commentId).content("content").build();
         updatedCommentDto = CommentDto.builder().id(commentId).content("updated").build();
-        comment = commentMapper.commentToEntity(updatedCommentDto);
+        comment = commentMapper.toEntity(updatedCommentDto);
     }
 
     @Test
@@ -122,9 +122,9 @@ public class CommentServiceTest {
 
         List<Comment> commentList = List.of(comment3, comment2, comment1);
         List<CommentDto> expectedList = List.of(
-                commentMapper.commentToDto(comment1),
-                commentMapper.commentToDto(comment2),
-                commentMapper.commentToDto(comment3));
+                commentMapper.toDto(comment1),
+                commentMapper.toDto(comment2),
+                commentMapper.toDto(comment3));
 
         when(commentRepository.findAllByPostId(postId)).thenReturn(commentList);
         List<CommentDto> result = commentService.getCommentsForPost(postId);

@@ -1,6 +1,5 @@
 package faang.school.postservice.service;
 
-import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.PostPair;
 import faang.school.postservice.dto.kafka.EventAction;
 import faang.school.postservice.dto.kafka.PostEvent;
@@ -50,7 +49,6 @@ public class PostService {
     private int sublistSize;
     @Value("${spring.data.kafka.util.batch-size}")
     private int batchSize;
-
 
     @Transactional
     public PostDto crateDraftPost(PostDto postDto) {
