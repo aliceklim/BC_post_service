@@ -1,74 +1,75 @@
 package faang.school.postservice.controller;
 
+import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.comment.CommentDto;
-import faang.school.postservice.exception.DataValidationException;
 import faang.school.postservice.service.CommentService;
-import faang.school.postservice.util.ErrorMessage;
+import faang.school.postservice.validator.CommentValidator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/comments")
-@Tag(name = "CommentController", description = "Контроллер создает, обновляет и удаляет комментарии." +
-        " Возвращает комментарии под конкретным постом")
+@Tag(name = "CommentController", description = "Creates, updates. deletes gets comments for a post")
+@Slf4j
 public class CommentController {
 
     private final CommentService commentService;
+    private final CommentValidator commentValidator;
 
-    @PostMapping
+    @PostMapping("/new")
     @Operation(
-            summary = "Создание комментария",
-            description = "Создает комментарий под постом"
+            summary = "Comment creation",
+            description = "Creates a comment for a post"
     )
-    @Parameter(description = "Принимает комментарий который нужно создать")
-    public CommentDto create(@Valid @RequestBody CommentDto commentDto) {
-        if (commentDto.getId() != null) {
-            throw new DataValidationException(ErrorMessage.COMMENT_ID_NOT_NULL_ON_CREATION);
-        }
+    @Parameter(description = "Receives a commentDto")
+    public CommentDto createComment(@Valid @RequestBody CommentDto commentDto) {
+        log.info("Endpoint <createComment>, uri='/comments/new' was called");
+        commentValidator.validateIdIsNull(commentDto.getId());
+
         return commentService.create(commentDto);
     }
 
-    @PutMapping
+    @PutMapping("/edit")
     @Operation(
-            summary = "Обновление комментария",
-            description = "Изменяет созданный комментарий"
+            summary = "Updates",
+            description = "Updates an existing comment"
     )
-    @Parameter(description = "Принимает комментарий которую нужно изменить в базе данных")
-    public CommentDto update(@Valid CommentDto commentDto) {
+    @Parameter(description = "Receives a commentDto to update existing comment")
+    public CommentDto updateComment(@RequestHeader("x-user-id")Long currentUserId,
+                                    @Valid @RequestBody CommentDto commentDto) {
+        log.info("Endpoint <updateComment>, uri='/comments/edit' was called");
+        commentValidator.validateCommentAuthor(currentUserId, commentDto.getAuthorId());
+
         return commentService.update(commentDto);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{commentId}")
     @Operation(
-            summary = "Удаление комментария",
-            description = "Удаляет выбранный комментарий"
+            summary = "Deletion",
+            description = "Deletes a comment by id"
     )
-    @Parameter(description = "Принимает параметр ID какого комментария нужно удалить")
-    public void delete(@PathVariable Long id) {
-        commentService.delete(id);
+    @Parameter(description = "Receives a commentId to be deleted")
+    public void deleteComment(@RequestHeader("x-user-id")Long currentUserId,
+                              @PathVariable Long commentId) {
+        log.info("Endpoint <deleteComment>, uri='/comments/{}' was called", commentId);
+        commentValidator.validateCommentAuthor(currentUserId, commentId);
+        commentService.delete(commentId);
     }
 
     @GetMapping("/{postId}")
     @Operation(
-            summary = "Возвращает список комментариев",
-            description = "Возвращает все комментарии под выбранным постом"
-    )
-    @Parameter(description = "Принимает номер поста с которого нужно вернуть комментарии")
+            summary = "Gets a list of comments for postId")
+    @Parameter(description = "Receives a postId to search for its comments")
     public List<CommentDto> getCommentsForPost(@PathVariable Long postId) {
+        log.info("Endpoint <getCommentsForPost>, uri='/comments/{}' was called", postId);
         return commentService.getCommentsForPost(postId);
     }
 }
