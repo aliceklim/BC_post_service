@@ -30,9 +30,11 @@ public class CommentController {
             description = "Creates a comment for a post"
     )
     @Parameter(description = "Receives a commentDto")
-    public CommentDto createComment(@Valid @RequestBody CommentDto commentDto) {
+    public CommentDto createComment(@RequestHeader("x-user-id")Long currentUserId,
+                                    @Valid @RequestBody CommentDto commentDto) {
         log.info("Endpoint <createComment>, uri='/comments/new' was called");
-        commentValidator.validateIdIsNull(commentDto.getId());
+        commentValidator.validateNewComment(
+                commentDto.getId(), commentDto.getPostId(), currentUserId, commentDto.getAuthorId());
 
         return commentService.create(commentDto);
     }
@@ -46,7 +48,8 @@ public class CommentController {
     public CommentDto updateComment(@RequestHeader("x-user-id")Long currentUserId,
                                     @Valid @RequestBody CommentDto commentDto) {
         log.info("Endpoint <updateComment>, uri='/comments/edit' was called");
-        commentValidator.validateCommentAuthor(currentUserId, commentDto.getAuthorId());
+        commentValidator.validateExistingComment(
+                commentDto.getId(), commentDto.getPostId(), currentUserId, commentDto.getAuthorId());
 
         return commentService.update(commentDto);
     }
@@ -60,8 +63,8 @@ public class CommentController {
     public void deleteComment(@RequestHeader("x-user-id")Long currentUserId,
                               @PathVariable Long commentId) {
         log.info("Endpoint <deleteComment>, uri='/comments/{}' was called", commentId);
-        commentValidator.validateCommentAuthor(currentUserId, commentId);
-        commentService.delete(commentId);
+
+        commentService.delete(currentUserId, commentId);
     }
 
     @GetMapping("/{postId}")
@@ -70,6 +73,7 @@ public class CommentController {
     @Parameter(description = "Receives a postId to search for its comments")
     public List<CommentDto> getCommentsForPost(@PathVariable Long postId) {
         log.info("Endpoint <getCommentsForPost>, uri='/comments/{}' was called", postId);
+
         return commentService.getCommentsForPost(postId);
     }
 }

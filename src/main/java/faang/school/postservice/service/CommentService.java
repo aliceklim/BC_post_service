@@ -11,7 +11,6 @@ import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.messaging.publisher.KafkaCommentProducer;
 import faang.school.postservice.repository.CommentRepository;
-import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.service.redis.CommentEventPublisher;
 import faang.school.postservice.util.ErrorMessage;
 import faang.school.postservice.validator.CommentValidator;
@@ -32,7 +31,7 @@ import java.util.Optional;
 public class CommentService {
     private final CommentRepository commentRepository;
     private final CommentMapper commentMapper;
-    private final PostRepository postRepository;
+    private final PostService postService;
     private final CommentValidator commentValidator;
     private final RedisCacheService redisCacheService;
     private final CommentEventPublisher redisCommentEventPublisher;
@@ -41,39 +40,45 @@ public class CommentService {
 
     @Transactional
     public CommentDto create(CommentDto commentDto){
-        Comment comment = commentMapper.commentToEntity(commentDto);
-        commentValidator.validateUserExistence(comment.getAuthorId());
-
-        postRepository.findById(commentDto.getPostId()).orElseThrow(() -> new EntityNotFoundException(
-                MessageFormat.format(ErrorMessage.COMMENT_NOT_FOUND_FORMAT, commentDto.getPostId())));
-        log.info("Comment created and saved. Id: {}" + comment.getId());
+        Post post = postService.findAlreadyPublishedAndNotDeletedPost(commentDto.getPostId())
+                .orElseThrow(() ->
+                        new EntityNotFoundException(String.format("PostID %d not published yet or already deleted",
+                                commentDto.getPostId())));
+        Comment comment = commentMapper.toEntity(commentDto);
+        comment.setPost(post);
+        Comment entity = commentRepository.save(comment);
+        log.info("CommentId {} created and saved", entity.getId());
 
         publishCommentCreationEvent(comment);
         publishKafkaCommentEvent(comment, EventAction.CREATE);
 
         redisCacheService.updateOrCacheUser(redisCacheService.findUserBy(comment.getAuthorId()));
 
-        return commentMapper.commentToDto(commentRepository.save(comment));
+        return commentMapper.toDto(entity);
     }
 
     @Transactional
     public CommentDto update(CommentDto commentDto){
-        Optional<Comment> comment = Optional.ofNullable(commentRepository.findById(commentDto.getId())
-                .orElseThrow(() -> new DataValidationException(
-                        MessageFormat.format(ErrorMessage.COMMENT_NOT_FOUND_FORMAT, commentDto.getId()))));
 
-        comment.get().setContent(commentDto.getContent());
-        comment.get().setUpdatedAt(LocalDateTime.now());
-        commentRepository.save(comment.get());
+        Comment comment = commentRepository.findById(commentDto.getId()).get();
+        comment.setContent(commentDto.getContent());
+        comment.setUpdatedAt(LocalDateTime.now());
+        commentRepository.save(comment);
+        log.info("CommentID {} is updated", comment.getId());
 
-        return commentMapper.commentToDto(comment.get());
+        publishKafkaCommentEvent(comment, EventAction.UPDATE);
+
+        return commentMapper.toDto(comment);
     }
 
     @Transactional
-    public void delete(Long id){
-        Comment comment = commentRepository.findById(id)
+    public void delete(Long currentUserId, Long commentId){
+        Comment comment = commentRepository.findById(commentId)
                         .orElseThrow(()-> new EntityNotFoundException(
-                                MessageFormat.format(ErrorMessage.COMMENT_NOT_FOUND_FORMAT, id)));
+                                MessageFormat.format(ErrorMessage.COMMENT_NOT_FOUND_FORMAT, commentId)));
+        commentValidator.validateCommentAuthor(currentUserId, comment.getAuthorId());
+        commentValidator.validateUserExist(comment.getAuthorId());
+        log.info("CommentID {} is deleted", comment.getId());
 
         commentRepository.delete(comment);
     }
@@ -81,7 +86,7 @@ public class CommentService {
     public List<CommentDto> getCommentsForPost(Long postId){
         return commentRepository.findAllByPostId(postId).stream()
                 .sorted(Comparator.comparing(Comment::getCreatedAt).reversed())
-                .map(commentMapper::commentToDto)
+                .map(commentMapper::toDto)
                 .toList();
     }
 
@@ -97,7 +102,7 @@ public class CommentService {
                 .createdAt(comment.getCreatedAt())
                 .build();
         redisCommentEventPublisher.publish(commentEventDto);
-        log.info("Comment creation event published: comment ID: {}, author ID: {}, post ID: {}", commentId, authorId, postId);
+        log.info("Comment creation event published: commentID {}, authorID {}, postID {}", commentId, authorId, postId);
     }
 
     private void publishKafkaCommentEvent(Comment comment, EventAction eventAction) {
@@ -110,7 +115,7 @@ public class CommentService {
                 .eventAction(eventAction)
                 .build();
         kafkaCommentEventPublisher.publish(event);
-        log.info("Comment event with Post ID: {}, and Author ID: {}, has been successfully published", postId, authorId);
+        log.info("Comment event with PostID {} and AuthorID {} has been published", postId, authorId);
     }
 
     private Comment buildCommentExampleBy(long postId) {
