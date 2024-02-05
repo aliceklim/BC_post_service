@@ -87,19 +87,9 @@ public class CommentService {
     }
 
     public Page<CommentDto> getCommentsByPost(Long postId, Pageable pageable) {
-        ExampleMatcher exampleMatcher = ExampleMatcher.matching()
-                .withIgnorePaths("authorId", "verified", "post.views",
-                        "post.published", "post.corrected", "post.deleted",
-                        "post.verified")
-                .withMatcher("post.id", ExampleMatcher.GenericPropertyMatcher::exact);
 
-        Example<Comment> example = Example.of(buildCommentExampleBy(postId), exampleMatcher);
-
-        pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Order.asc("createdAt")));
-
-        Page<Comment> page = commentRepository.findAll(example, pageable);
-
-        List<CommentDto> dtos = page.get()
+        List<Comment> comments = commentRepository.findAllByPostId(postId);
+        List<CommentDto> dtos = comments.stream()
                 .map(commentMapper::toDto)
                 .toList();
 
