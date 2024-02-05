@@ -183,24 +183,14 @@ public class CommentServiceTest {
     @Test
     void getCommentsByPostTest() {
         Pageable pageable = PageRequest.of(0, 5);
-        Pageable sortedPageable = PageRequest.of(0, 5, Sort.by(Sort.Order.asc("createdAt")));
-
-        ExampleMatcher exampleMatcher = ExampleMatcher.matching()
-                .withIgnorePaths("authorId", "verified", "post.views",
-                        "post.published", "post.corrected", "post.deleted",
-                        "post.verified")
-                .withMatcher("post.id", ExampleMatcher.GenericPropertyMatcher::exact);
-
-        Example<Comment> example = Example.of(Comment.builder().post(post).build(), exampleMatcher);
         Page<Comment> page = new PageImpl<>(new ArrayList<>(List.of(comment)));
         Page<CommentDto> expected = new PageImpl<>(List.of(commentMapper.toDto(comment)));
-
-        when(commentRepository.findAll(example, sortedPageable)).thenReturn(page);
+        when(commentRepository.findAllByPostId(postId)).thenReturn(List.of(comment));
 
         Page<CommentDto> result = commentService.getCommentsByPost(postId, pageable);
 
         assertEquals(expected, result);
-        verify(commentRepository).findAll(example, sortedPageable);
+        verify(commentRepository).findAllByPostId(postId);
     }
 
     @Test
