@@ -1,6 +1,7 @@
 package faang.school.postservice.validator;
 
 import faang.school.postservice.client.UserServiceClient;
+import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.exception.*;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
@@ -16,6 +17,7 @@ public class CommentValidator {
     private final UserServiceClient userServiceClient;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final UserContext userContext;
 
     public void validateNewComment(Long commentId, Long postId, Long currentUserId, Long authorId){
         validateIdIsNull(commentId);
@@ -33,7 +35,7 @@ public class CommentValidator {
 
     public void validateUserExist(Long userId) {
         try {
-            userServiceClient.getUser(userId, userId);
+            userServiceClient.getUser(userContext.getUserId(), userId);
 
             log.info("User validated successfully with ID: {}", userId);
         } catch (FeignException e) {
