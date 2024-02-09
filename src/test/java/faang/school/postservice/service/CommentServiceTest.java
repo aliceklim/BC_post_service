@@ -182,15 +182,15 @@ public class CommentServiceTest {
 
     @Test
     void getCommentsByPostTest() {
-        Pageable pageable = PageRequest.of(0, 5);
+        Pageable pageable = PageRequest.of(0, 5, Sort.by(Sort.Direction.ASC, "createdAt"));
         Page<Comment> page = new PageImpl<>(new ArrayList<>(List.of(comment)));
         Page<CommentDto> expected = new PageImpl<>(List.of(commentMapper.toDto(comment)));
-        when(commentRepository.findAllByPostId(postId)).thenReturn(List.of(comment));
-
+        when(commentRepository.findAllByPostId(eq(postId), any(Pageable.class)))
+                .thenReturn(page);
         Page<CommentDto> result = commentService.getCommentsByPost(postId, pageable);
 
         assertEquals(expected, result);
-        verify(commentRepository).findAllByPostId(postId);
+        verify(commentRepository).findAllByPostId(postId, pageable);
     }
 
     @Test

@@ -18,4 +18,6 @@ public interface CommentRepository extends CrudRepository<Comment, Long> {
 
     @Query("SELECT c FROM Comment c WHERE c.verified IS NULL")
     List<Comment> findUnverifiedComments();
+
+    Page<Comment> findAllByPostId(Long postId, Pageable pageable);
 }

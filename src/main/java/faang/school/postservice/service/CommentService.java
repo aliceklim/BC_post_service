@@ -87,8 +87,8 @@ public class CommentService {
     }
 
     public Page<CommentDto> getCommentsByPost(Long postId, Pageable pageable) {
-
-        List<Comment> comments = commentRepository.findAllByPostId(postId);
+        pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Order.asc("createdAt")));
+        Page<Comment> comments = commentRepository.findAllByPostId(postId, pageable);
         List<CommentDto> dtos = comments.stream()
                 .map(commentMapper::toDto)
                 .toList();
