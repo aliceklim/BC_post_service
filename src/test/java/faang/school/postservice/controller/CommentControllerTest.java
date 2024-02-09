@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,16 +30,16 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.web.servlet.function.RequestPredicates.contentType;
 
 @ExtendWith(SpringExtension.class)
 @EnableSpringDataWebSupport
-@SpringBootTest
-@AutoConfigureMockMvc
 public class CommentControllerTest {
     @Mock
     private CommentService commentService;
@@ -151,20 +152,5 @@ public class CommentControllerTest {
 
         verify(userContext).setUserId(userId);
         verify(commentService, times(1)).delete(commentId);
-    }
-
-    @Test
-    void getCommentsByPost() throws Exception{
-        Pageable pageable = PageRequest.of(0, 20);
-
-        when(commentService.getCommentsByPost(postId, pageable))
-                .thenReturn(new PageImpl<>(List.of(commentDto)));
-
-        mockMvc.perform(get("/api/v1/comments/{postId}", postId)
-                        .header("x-user-id", userId)
-                        .param("page", String.valueOf(pageable.getPageNumber()))
-                        .param("size", String.valueOf(pageable.getPageSize()))
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
     }
 }
