@@ -1,6 +1,8 @@
 package faang.school.postservice.service;
 
+import faang.school.postservice.corrector.TextGearsAPIService;
 import faang.school.postservice.dto.PostPair;
+import faang.school.postservice.dto.corrector.TextGearsResponse;
 import faang.school.postservice.dto.kafka.EventAction;
 import faang.school.postservice.dto.kafka.PostEvent;
 import com.google.common.collect.Lists;
@@ -44,6 +46,7 @@ public class PostService {
     private final Executor threadPoolForPostModeration;
     private final ThreadPoolTaskExecutor threadPoolTaskExecutor;
     private final ModerationDictionary moderationDictionary;
+    private final TextGearsAPIService textGearsAPIService;
 
     @Value("${post.moderation.scheduler.sublist-size}")
     private int sublistSize;
@@ -241,7 +244,7 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PostDto> getAllPostsByHashtagId(String content, Pageable pageable){
+    public Page<PostDto> getAllPostsByHashtagId(String content, Pageable pageable) {
         return postRepository.findByHashtagsContent(content, pageable)
                 .map(post -> {
                     publisherService.publishPostEventToRedis(post);
@@ -257,7 +260,7 @@ public class PostService {
     }
 
     @Transactional
-    public Post updatePostInternal(Post post){
+    public Post updatePostInternal(Post post) {
         return postRepository.save(post);
     }
 
@@ -370,7 +373,7 @@ public class PostService {
                 .build();
     }
 
-    private List<Long> getPostIds(List<Post> posts){
+    private List<Long> getPostIds(List<Post> posts) {
         return posts.stream().map(Post::getId).toList();
     }
 
@@ -425,5 +428,16 @@ public class PostService {
     public List<Post> findSortedPostsFromPostDateAndAuthorsLimit(List<Long> followees, LocalDateTime lastPostDate,
                                                                  int limit) {
         return postRepository.findSortedPostsFromPostDateAndAuthorsLimit(followees, lastPostDate, limit);
+    }
+    @Transactional
+    public void processSpellCheckUnpublishedPosts() {
+        List<Post> unpublishedPosts = postRepository.findNotPublishedAndNotDeleted();
+        log.info("Posts to be corrected: {}", unpublishedPosts.size());
+        unpublishedPosts.forEach(post -> {
+            String correctedText = textGearsAPIService.correctText(post.getContent());
+            log.info("Initial text: {}, corrected text:{}", post.getContent(), correctedText);
+            post.setContent(correctedText);
+            postRepository.save(post);
+        });
     }
 }

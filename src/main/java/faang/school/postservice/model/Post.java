@@ -99,30 +99,6 @@ public class Post {
     private boolean verified;
 
     @Override
-    public String toString() {
-        return "Post{" +
-                "id=" + id +
-                ", content='" + content + '\'' +
-                ", authorId=" + authorId +
-                ", projectId=" + projectId +
-                ", views=" + views +
-                ", likes=" + likes +
-                ", comments=" + comments +
-                ", albums=" + albums +
-                ", ad=" + ad +
-                ", published=" + published +
-                ", corrected=" + corrected +
-                ", publishedAt=" + publishedAt +
-                ", scheduledAt=" + scheduledAt +
-                ", deleted=" + deleted +
-                ", createdAt=" + createdAt +
-                ", updatedAt=" + updatedAt +
-                ", verifiedDate=" + verifiedDate +
-                ", verified=" + verified +
-                '}';
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
