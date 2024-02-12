@@ -164,3 +164,13 @@ async:
 
 page:
   size: 20
+
+correcter:
+  scheduler:
+   cron: "0 0 0 * * ?" # Every day at midnight
+
+ai:
+  api:
+    key: EoWWOdoDVKWB4rPb
+    host: https://api.textgears.com/check.php
+    path: "/grammar"

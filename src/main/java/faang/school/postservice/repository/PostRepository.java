@@ -29,6 +29,9 @@ public interface PostRepository extends CrudRepository<Post, Long> {
     @Query("SELECT p FROM Post p WHERE p.published = false AND p.deleted = false AND p.scheduledAt <= CURRENT_TIMESTAMP")
     List<Post> findReadyToPublish();
 
+    @Query("SELECT p FROM Post p WHERE p.published = false AND p.deleted = false")
+    List<Post> findNotPublishedAndNotDeleted();
+
     @Query(value = "SELECT p FROM Post p JOIN p.hashtags h WHERE h.id = :hashtagId", nativeQuery = true)
     List<Post> findByHashtagId(Long hashtagId);
 

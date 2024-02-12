@@ -177,4 +177,10 @@ public class PostController {
 
         return postService.getAllPostsByHashtagId(hashtagContent, pageable);
     }
+
+    @PostMapping("/forcecorrect")
+    public void forceCorrectPosts(){
+        log.info("Endpoint <forceCorrectPosts>, uri='/posts/all/forcecorrect' {} was called");
+        postService.processSpellCheckUnpublishedPosts();
+    }
 }
