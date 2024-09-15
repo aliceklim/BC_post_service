@@ -20,6 +20,7 @@ import java.util.List;
 public class RedisPostDto implements Serializable {
     @Id
     private Long id;
+    private Long postId;
     private String content;
     private Long authorId;
     private Long postViews;
